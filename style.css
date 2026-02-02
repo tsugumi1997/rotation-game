@@ -1,18 +1,18 @@
 :root{
   /* 明るい木目風（全体トーン） */
-  --bg:#f5efe6;      /* 画面の背景 */
-  --fg:#2b2b2b;      /* 文字色 */
-  --muted:#6b6b6b;   /* 薄い文字 */
-  --card:#fff8ee;    /* パネル背景 */
-  --line:#c9b8a6;    /* 枠線 */
+  --bg:#f5efe6;      
+  --fg:#2b2b2b;      
+  --muted:#6b6b6b;   
+  --card:#fff8ee;    
+  --line:#c9b8a6;    
 
-  /* 盤面のマス（木の濃淡） */
+  /* 盤面のマス */
   --cell:#ead7b7;
   --cell2:#e0c89a;
 
   /* アクセント */
   --accent:#5b7cff;
-  --win:#b98500;     /* 勝利ライン枠 */
+  --win:#b98500;     
   --winFill: rgba(185,133,0,0.14);
 }
 
@@ -169,6 +169,14 @@ button:active{ transform:scale(0.98); }
 .primary{
   background:#f1e2c7;
   border-color:#d6bf9e;
+}
+
+/* ===== ここが今回の本題 ===== */
+/* 回転小盤ボタンを2×2グリッド表示に */
+.quad{
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:8px;
 }
 
 .quad button.selected, .dir button.selected{
