@@ -11,48 +11,55 @@
   <header>
     <div class="titleRow">
       <h1>rotation-game</h1>
-      <label class="aiToggle"><input id="aiWhite" type="checkbox" /> AI（白）</label>
+
+      <label class="aiToggle">
+        <input type="checkbox" id="aiToggle" />
+        <span>AI（白）</span>
+      </label>
     </div>
 
     <div class="hud">
       <div class="turnBig" id="turnBig">—</div>
+
       <div class="hudRow">
-        <span class="pill">Phase <span class="mono" id="phase">—</span></span>
-        <span class="pill">Eval <span class="mono" id="eval">0</span></span>
-        <span class="pill">B/W <span class="mono" id="bw">0 / 0</span></span>
-        <span class="pill">Room <span class="mono" id="roomLabel">—</span></span>
+        <span class="pill">Phase <span class="mono" id="phaseText">—</span></span>
+        <span class="pill">Eval <span class="mono" id="evalText">0</span></span>
+        <span class="pill">B/W <span class="mono" id="bwText">0 / 0</span></span>
+        <span class="pill">Room <span class="mono" id="roomCode">—</span></span>
       </div>
+
       <div class="hudRow">
-        <span class="pill">You <span class="mono" id="youLabel">—</span></span>
-        <span class="pill">Status <span class="mono" id="status">ready</span></span>
+        <span class="pill">You <span class="mono" id="seatLabel">—</span></span>
+        <span class="pill">Status <span class="mono" id="statusText">—</span></span>
       </div>
     </div>
   </header>
 
   <main>
     <div class="boardWrap">
+      <!-- 盤は app.js がここに 6x6 を生成します -->
       <div id="board" class="board" aria-label="board"></div>
     </div>
 
     <section class="panel">
       <div class="panelTitle">回転 小盤</div>
       <div class="quad">
-        <button class="qbtn" data-q="0">左上</button>
-        <button class="qbtn" data-q="1">右上</button>
-        <button class="qbtn" data-q="2">左下</button>
-        <button class="qbtn" data-q="3">右下</button>
+        <button class="qbtn" data-q="0" type="button">左上</button>
+        <button class="qbtn" data-q="1" type="button">右上</button>
+        <button class="qbtn" data-q="2" type="button">左下</button>
+        <button class="qbtn" data-q="3" type="button">右下</button>
       </div>
 
       <div class="panelTitle">方向</div>
       <div class="dir">
-        <button class="dbtn" data-d="L">左</button>
-        <button class="dbtn" data-d="R">右</button>
+        <button class="dbtn" data-dir="L" type="button">左</button>
+        <button class="dbtn" data-dir="R" type="button">右</button>
       </div>
 
       <div class="row">
-        <button id="commit" class="primary">回転して確定</button>
-        <button id="undo">Undo</button>
-        <button id="reset">Reset</button>
+        <button id="commit" class="primary" type="button">回転して確定</button>
+        <button id="undo" type="button">Undo</button>
+        <button id="reset" type="button">Reset</button>
       </div>
     </section>
 
@@ -61,10 +68,11 @@
     </footer>
   </main>
 
-  <!-- Firebase (compat / CDN) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <!-- Firebase (compat / CDN) ※ app.jsより上に必須 -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
+  <!-- あなたのゲーム本体（最後） -->
   <script src="./app.js"></script>
 </body>
 </html>
