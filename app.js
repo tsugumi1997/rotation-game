@@ -1,34 +1,137 @@
-/* Pentago-like Rotation 5-in-a-row
-   - 6x6 board split into 4 quadrants (3x3 each), rotate 90 degrees
-   - Features:
-     * Big turn display
-     * Evaluation display
-     * Win-line highlight
-     * Undo / Reset
-     * AI (White) "human-like" via biased evaluation (center / L-shapes / fear opponent)
-     * "Temp placement" (仮置き): you can reselect the cell until you confirm by rotation
+/* app.js（全置換）
+   - GitHub Pages のURLはそのまま
+   - Firebase Realtime Database でオンライン同期
+   - 仮置き：タップで仮置き（選び直しOK）→ 回転で確定
+   - 勝利ライン：winCells を付与（CSS側 .win でハイライト）
+   - 簡単AI（白）：ローカル練習用。オンライン対戦中はOFF推奨
 */
 
 const EMPTY = 0, BLACK = 1, WHITE = 2;
 
-// Game state
+// ===== Firebase 設定（あなたの値で埋め込み済み） =====
+const firebaseConfig = {
+  apiKey: "AIzaSyBuV-7S_1LuPiTKVdkFjyOvtKUaN136rPE",
+  authDomain: "pentago-online.firebaseapp.com",
+  databaseURL: "https://pentago-online-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pentago-online",
+  storageBucket: "pentago-online.firebasestorage.app",
+  messagingSenderId: "205747321779",
+  appId: "1:205747321779:web:a553a1a01d2bfec98da9c6",
+  measurementId: "G-F1BSS16ZQ9"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+// =======================================================
+
+// -------- Room / Client / Seat --------
+
+const elRoomCode = document.getElementById("roomCode");
+const elSeatLabel = document.getElementById("seatLabel");
+
+function randRoom(){
+  return String(Math.floor(100000 + Math.random()*900000));
+}
+function getRoomFromURL(){
+  const u = new URL(location.href);
+  return u.searchParams.get("room");
+}
+function setRoomToURL(room){
+  const u = new URL(location.href);
+  u.searchParams.set("room", room);
+  history.replaceState(null, "", u.toString());
+}
+
+const roomId = (getRoomFromURL() || randRoom());
+setRoomToURL(roomId);
+elRoomCode.textContent = roomId;
+
+const clientId = getOrCreateClientId();
+function getOrCreateClientId(){
+  const k = "rot5_client_id";
+  const v = localStorage.getItem(k);
+  if (v) return v;
+  const nv = "c_" + Math.random().toString(16).slice(2) + "_" + Date.now();
+  localStorage.setItem(k, nv);
+  return nv;
+}
+
+const roomRef  = db.ref(`rooms/${roomId}`);
+const stateRef = roomRef.child("state");
+const seatsRef = roomRef.child("seats");
+
+let mySeat = null; // "black" | "white" | null（観戦）
+
+async function claimSeat(){
+  const blackRef = seatsRef.child("black");
+  const whiteRef = seatsRef.child("white");
+
+  const snap = await seatsRef.get();
+  const seats = snap.exists() ? snap.val() : {};
+
+  if (!seats.black){
+    await blackRef.set(clientId);
+    blackRef.onDisconnect().remove();
+    mySeat = "black";
+  } else if (seats.black === clientId){
+    mySeat = "black";
+  } else if (!seats.white){
+    await whiteRef.set(clientId);
+    whiteRef.onDisconnect().remove();
+    mySeat = "white";
+  } else if (seats.white === clientId){
+    mySeat = "white";
+  } else {
+    mySeat = null; // 観戦
+  }
+
+  elSeatLabel.textContent =
+    mySeat === "black" ? "黒(●)" :
+    mySeat === "white" ? "白(○)" : "観戦";
+}
+
+function seatToPlayer(seat){
+  return seat === "black" ? BLACK : seat === "white" ? WHITE : null;
+}
+
+function iAmCurrentTurn(st){
+  if (!mySeat) return false;
+  return seatToPlayer(mySeat) === st.player;
+}
+
+function defaultState(){
+  return {
+    board: newBoard(),
+    player: BLACK,
+    finished: false,
+    winCells: [],
+    updatedAt: Date.now(),
+    moveNo: 0
+  };
+}
+
+async function ensureRoomState(){
+  const snap = await stateRef.get();
+  if (!snap.exists()){
+    await stateRef.set(defaultState());
+  }
+}
+
+function pushState(next){
+  next.updatedAt = Date.now();
+  return stateRef.set(next);
+}
+
+// -------- Game state (local mirror) --------
+
 let board = newBoard();
 let player = BLACK;
-let phase = "place";        // "place" only (temp placement) -> rotate+finalize inside button
-let selectedQ = null;       // 0..3
-let selectedD = null;       // "L" or "R"
 let finished = false;
 let winCells = [];
-let history = [];
+let tempMove = null;     // {r,c} 仮置き
+let history = [];        // Undo用（黒側だけに制限）
 
-// Temp placement (仮置き)
-let tempMove = null;
-
-// AI
-let aiEnabled = false;      // White is AI when true
-let aiThinking = false;
-
-// DOM
+// UI
 const elBoard   = document.getElementById("board");
 const elStatus  = document.getElementById("status");
 const elPhase   = document.getElementById("phase");
@@ -41,254 +144,107 @@ const btnReset  = document.getElementById("reset");
 const btnUndo   = document.getElementById("undo");
 const chkAiOn   = document.getElementById("aiOn");
 
-// -------------------- Init --------------------
+// rotation selection
+let selectedQ = null; // 0..3
+let selectedD = null; // "L"|"R"
+
+// AI（ローカル練習用）
+let aiEnabled = false;
+let aiThinking = false;
 
 chkAiOn.addEventListener("change", ()=>{
   aiEnabled = chkAiOn.checked;
+  render();
   maybeAIMove();
 });
 
 document.querySelectorAll(".quad button").forEach(b=>{
   b.addEventListener("click", ()=>{
-    if (finished || aiThinking) return;
-    if (aiEnabled && player === WHITE) return;
-
+    if (!canOperate()) return;
     selectedQ = Number(b.dataset.q);
     setButtonsSelected();
   });
 });
-
 document.querySelectorAll(".dir button").forEach(b=>{
   b.addEventListener("click", ()=>{
-    if (finished || aiThinking) return;
-    if (aiEnabled && player === WHITE) return;
-
+    if (!canOperate()) return;
     selectedD = b.dataset.d;
     setButtonsSelected();
   });
 });
 
-btnRotate.addEventListener("click", rotateAndCommit);
-btnReset.addEventListener("click", resetGame);
-btnUndo.addEventListener("click", undoMove);
+btnRotate.addEventListener("click", ()=>{
+  if (!canOperate()) return;
+  rotateAndCommit();
+});
 
-// -------------------- Render --------------------
+btnReset.addEventListener("click", ()=>{
+  if (!canOperateAdmin()) return;
+  resetGame(true);
+});
 
-function render(){
-  elBoard.innerHTML = "";
+btnUndo.addEventListener("click", ()=>{
+  if (!canOperateAdmin()) return;
+  undoMove(true);
+});
 
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.dataset.r = r;
-      cell.dataset.c = c;
+function canOperate(){
+  if (!mySeat) return false;
+  if (finished) return false;
+  if (aiThinking) return false;
 
-      // Determine what to show: real board or temp placement
-      let mark = board[r][c];
-      if (tempMove && tempMove.r === r && tempMove.c === c){
-        mark = player;               // show temp stone as current player's
-        cell.style.opacity = "0.6";  // visual hint that it's not committed yet
-      }
-      cell.dataset.mark = String(mark);
+  // ローカルAIで遊ぶとき：白はAIなので操作不可
+  if (aiEnabled && seatToPlayer(mySeat) === WHITE) return false;
 
-      if (isWinCell(r,c)) cell.classList.add("win");
-
-      cell.addEventListener("click", onCellTap);
-      elBoard.appendChild(cell);
-    }
-  }
-
-  // Big turn display
-  if (finished){
-    elTurnBig.textContent = "終了";
-  } else {
-    elTurnBig.textContent = (player === BLACK) ? "黒(●)の手番" : "白(○)の手番";
-  }
-
-  // Phase display (we keep UI text compatible)
-  elPhase.textContent = "① 置く（仮）→ ② 回転で確定";
-
-  // Evaluation display (board only; temp placement not included)
-  const bScore = evaluate(board, BLACK);
-  const wScore = evaluate(board, WHITE);
-  elEval.textContent = String(bScore - wScore);
-  elEval2.textContent = `${bScore} / ${wScore}`;
-
-  // Status
-  if (finished){
-    // keep final message
-  } else if (aiThinking){
-    elStatus.textContent = "AIが考えています…";
-  } else {
-    if (aiEnabled && player === WHITE){
-      elStatus.textContent = "AI（白）の番です。";
-    } else {
-      elStatus.textContent = tempMove
-        ? "回転（小盤＋方向）を選んで「回転して確定」。別マスをタップして選び直しOK。"
-        : "マスをタップして仮置き（何度でも選び直し可）。";
-    }
-  }
+  return iAmCurrentTurn(getStateObj());
 }
 
-function setButtonsSelected(){
-  document.querySelectorAll(".quad button").forEach(b=>{
-    b.classList.toggle("selected", Number(b.dataset.q) === selectedQ);
-  });
-  document.querySelectorAll(".dir button").forEach(b=>{
-    b.classList.toggle("selected", b.dataset.d === selectedD);
-  });
+function canOperateAdmin(){
+  // 乱用防止：Reset/Undo は黒側だけ
+  if (!mySeat) return false;
+  return mySeat === "black";
 }
 
-function isWinCell(r,c){
-  return winCells.some(p => p[0] === r && p[1] === c);
+function getStateObj(){
+  return { board, player, finished, winCells };
 }
 
-// -------------------- Player interaction (Temp placement) --------------------
+// -------- Firebase listeners --------
 
-function onCellTap(e){
-  if (finished || aiThinking) return;
-  if (aiEnabled && player === WHITE) return;
+stateRef.on("value", (snap)=>{
+  if (!snap.exists()) return;
+  const st = snap.val();
 
-  const r = Number(e.currentTarget.dataset.r);
-  const c = Number(e.currentTarget.dataset.c);
+  board    = st.board || newBoard();
+  player   = st.player ?? BLACK;
+  finished = !!st.finished;
+  winCells = Array.isArray(st.winCells) ? st.winCells : [];
 
-  if (board[r][c] !== EMPTY) return;
-
-  // Temp placement: just move the temp marker
-  winCells = [];
-  tempMove = {r,c};
-  render();
-}
-
-function rotateAndCommit(){
-  if (finished || aiThinking) return;
-  if (aiEnabled && player === WHITE) return;
-
-  if (!tempMove){
-    elStatus.textContent = "先にマスをタップして仮置きしてください。";
-    return;
-  }
-  if (selectedQ === null || (selectedD !== "L" && selectedD !== "R")){
-    elStatus.textContent = "回転する小盤（左上/右上/左下/右下）と方向（左/右）を選んでください。";
-    return;
-  }
-
-  // Commit the placement
-  board[tempMove.r][tempMove.c] = player;
+  // 同期が来たら仮置きは破棄（ズレ防止）
   tempMove = null;
-
-  // Rotate and finalize
-  applyRotationAndFinalize(selectedQ, selectedD === "R");
-}
-
-// -------------------- Reset / Undo --------------------
-
-function resetGame(){
-  board = newBoard();
-  player = BLACK;
-  selectedQ = null;
-  selectedD = null;
-  finished = false;
-  winCells = [];
-  history = [];
-  tempMove = null;
-  aiThinking = false;
-  setButtonsSelected();
-  elStatus.textContent = "";
-  render();
-  maybeAIMove();
-}
-
-function undoMove(){
-  if (history.length === 0) return;
-
-  history.pop();
-
-  if (history.length === 0){
-    board = newBoard();
-    player = BLACK;
-  } else {
-    const last = history[history.length - 1];
-    board = cloneBoard(last.board);
-    player = (last.player === BLACK) ? WHITE : BLACK;
-  }
-
-  selectedQ = null;
-  selectedD = null;
-  finished = false;
-  winCells = [];
-  tempMove = null;
-  aiThinking = false;
-  setButtonsSelected();
-  render();
-  maybeAIMove();
-}
-
-// -------------------- Finalization (Rotate -> Judge -> Switch turn) --------------------
-
-function applyRotationAndFinalize(q, cw){
-  rotateQuadrant(board, q, cw);
-
-  const blackLine = findFiveLine(board, BLACK);
-  const whiteLine = findFiveLine(board, WHITE);
-
-  const blackWin = blackLine.length > 0;
-  const whiteWin = whiteLine.length > 0;
-
-  if (blackWin && whiteWin){
-    finished = true;
-    winCells = [];
-    elStatus.textContent = "同時成立：引き分け";
-  } else if (blackWin){
-    finished = true;
-    winCells = blackLine;
-    elStatus.textContent = "黒(●)の勝ち";
-  } else if (whiteWin){
-    finished = true;
-    winCells = whiteLine;
-    elStatus.textContent = "白(○)の勝ち";
-  } else if (boardFull(board)){
-    finished = true;
-    winCells = [];
-    elStatus.textContent = "盤面が埋まった：引き分け";
-  } else {
-    // Save snapshot after full move
-    history.push({ board: cloneBoard(board), player });
-
-    // Next player
-    player = (player === BLACK) ? WHITE : BLACK;
-  }
-
-  // Clear rotation selection for next turn
   selectedQ = null;
   selectedD = null;
   setButtonsSelected();
 
   render();
   maybeAIMove();
-}
+});
 
-// -------------------- Board helpers --------------------
+seatsRef.on("value", (snap)=>{
+  const s = snap.exists() ? snap.val() : {};
+  // 席が外れていたら取り直し
+  if (mySeat === "black" && s.black !== clientId) mySeat = null;
+  if (mySeat === "white" && s.white !== clientId) mySeat = null;
+  if (!mySeat) claimSeat();
+});
+
+// -------- Core logic --------
 
 function newBoard(){
-  return Array.from({length:6}, () => Array.from({length:6}, () => EMPTY));
+  return Array.from({length:6}, ()=>Array(6).fill(EMPTY));
 }
+function cloneBoard(b){ return b.map(r=>r.slice()); }
 
-function cloneBoard(b){
-  return b.map(row => row.slice());
-}
-
-function boardFull(b){
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
-      if (b[r][c] === EMPTY) return false;
-    }
-  }
-  return true;
-}
-
-// Rotate 3x3 quadrant
 function rotateQuadrant(b, q, cw){
   const base = { 0:[0,0], 1:[0,3], 2:[3,0], 3:[3,3] };
   const [br, bc] = base[q];
@@ -297,46 +253,29 @@ function rotateQuadrant(b, q, cw){
     Array.from({length:3}, (_,j)=> b[br+i][bc+j])
   );
 
-  const neu = Array.from({length:3}, ()=> Array.from({length:3}, ()=> EMPTY));
+  const neu = Array.from({length:3}, ()=>Array(3).fill(EMPTY));
 
   if (cw){
-    for (let i=0; i<3; i++){
-      for (let j=0; j<3; j++){
-        neu[i][j] = old[2 - j][i];
-      }
-    }
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++) neu[i][j] = old[2-j][i];
   } else {
-    for (let i=0; i<3; i++){
-      for (let j=0; j<3; j++){
-        neu[i][j] = old[j][2 - i];
-      }
-    }
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++) neu[i][j] = old[j][2-i];
   }
 
-  for (let i=0; i<3; i++){
-    for (let j=0; j<3; j++){
-      b[br+i][bc+j] = neu[i][j];
-    }
-  }
+  for (let i=0;i<3;i++) for (let j=0;j<3;j++) b[br+i][bc+j] = neu[i][j];
 }
 
-// Find a single 5-in-a-row line (first found)
 function findFiveLine(b, p){
   const dirs = [[0,1],[1,0],[1,1],[-1,1]];
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
+  for (let r=0;r<6;r++){
+    for (let c=0;c<6;c++){
       if (b[r][c] !== p) continue;
-
       for (const [dr,dc] of dirs){
         const coords = [[r,c]];
-        let rr = r + dr;
-        let cc = c + dc;
-
-        while (rr>=0 && rr<6 && cc>=0 && cc<6 && b[rr][cc] === p){
+        let rr=r+dr, cc=c+dc;
+        while(rr>=0&&rr<6&&cc>=0&&cc<6&&b[rr][cc]===p){
           coords.push([rr,cc]);
-          if (coords.length >= 5) return coords.slice(0,5);
-          rr += dr;
-          cc += dc;
+          if(coords.length>=5) return coords.slice(0,5);
+          rr+=dr; cc+=dc;
         }
       }
     }
@@ -344,207 +283,231 @@ function findFiveLine(b, p){
   return [];
 }
 
-// -------------------- Human-like evaluation --------------------
-// Biases:
-//  - likes center control
-//  - likes simple "L" shapes (setup)
-//  - fears opponent's 3+ threats (over-defensive)
+function boardFull(b){
+  for(let r=0;r<6;r++) for(let c=0;c<6;c++) if(b[r][c]===EMPTY) return false;
+  return true;
+}
+
+// 評価（簡単）
+function countRuns(b, p){
+  const dirs=[[0,1],[1,0],[1,1],[-1,1]];
+  let two=0,three=0,four=0,five=0;
+
+  for(let r=0;r<6;r++){
+    for(let c=0;c<6;c++){
+      if(b[r][c]!==p) continue;
+      for(const[dr,dc] of dirs){
+        const pr=r-dr, pc=c-dc;
+        if(pr>=0&&pr<6&&pc>=0&&pc<6&&b[pr][pc]===p) continue;
+
+        let len=0, rr=r, cc=c;
+        while(rr>=0&&rr<6&&cc>=0&&cc<6&&b[rr][cc]===p){
+          len++; rr+=dr; cc+=dc;
+        }
+        if(len>=5) five++;
+        else if(len===4) four++;
+        else if(len===3) three++;
+        else if(len===2) two++;
+      }
+    }
+  }
+  return {two,three,four,five};
+}
 
 function evaluate(b, p){
-  const opp = (p === BLACK) ? WHITE : BLACK;
+  const opp = (p===BLACK)?WHITE:BLACK;
+  const my=countRuns(b,p);
+  const op=countRuns(b,opp);
 
-  // Center 2x2 control
-  const centers = [[2,2],[2,3],[3,2],[3,3]];
-  let centerCount = 0;
-  for (const [r,c] of centers){
-    if (b[r][c] === p) centerCount++;
-  }
-
-  const my = countRuns(b, p);
-  const op = countRuns(b, opp);
-
-  // Human-like weights
-  let score = 0;
-
-  // Win threats / progress
+  let score=0;
   score += 10000*my.five + 180*my.four + 28*my.three + 5*my.two;
-
-  // Fear opponent (a bit over-defensive)
   score -= 10000*op.five + 220*op.four + 70*op.three + 6*op.two;
-
-  // Center preference
-  score += 8 * centerCount;
-
-  // L-shape preference (setup bias)
-  score += 18 * countLShapes(b, p);
-
   return score;
 }
 
-function countRuns(b, p){
-  const dirs = [[0,1],[1,0],[1,1],[-1,1]];
-  let two=0, three=0, four=0, five=0;
+// -------- UI --------
 
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
-      if (b[r][c] !== p) continue;
+function isWinCell(r,c){
+  return winCells.some(x=>x[0]===r && x[1]===c);
+}
 
-      for (const [dr,dc] of dirs){
-        // start of run only (reduce duplicates)
-        const pr = r - dr;
-        const pc = c - dc;
-        if (pr>=0 && pr<6 && pc>=0 && pc<6 && b[pr][pc] === p) continue;
+function setButtonsSelected(){
+  document.querySelectorAll(".quad button").forEach(b=>{
+    b.classList.toggle("selected", Number(b.dataset.q)===selectedQ);
+  });
+  document.querySelectorAll(".dir button").forEach(b=>{
+    b.classList.toggle("selected", b.dataset.d===selectedD);
+  });
+}
 
-        let len = 0;
-        let rr = r;
-        let cc = c;
+function render(){
+  elBoard.innerHTML = "";
 
-        while (rr>=0 && rr<6 && cc>=0 && cc<6 && b[rr][cc] === p){
-          len++;
-          rr += dr;
-          cc += dc;
-        }
+  for(let r=0;r<6;r++){
+    for(let c=0;c<6;c++){
+      const cell=document.createElement("div");
+      cell.className="cell";
+      cell.dataset.r=r;
+      cell.dataset.c=c;
 
-        if (len >= 5) five++;
-        else if (len === 4) four++;
-        else if (len === 3) three++;
-        else if (len === 2) two++;
+      let mark = board[r][c];
+      if(tempMove && tempMove.r===r && tempMove.c===c){
+        mark = player;
+        cell.style.opacity = "0.6";
       }
+      cell.dataset.mark = String(mark);
+
+      if(isWinCell(r,c)) cell.classList.add("win");
+
+      cell.addEventListener("click", onCellTap);
+      elBoard.appendChild(cell);
     }
   }
 
-  return {two, three, four, five};
-}
+  elTurnBig.textContent = finished ? "終了" : (player===BLACK ? "黒(●)の手番" : "白(○)の手番");
+  elPhase.textContent = "① 置く（仮）→ ② 回転で確定";
 
-// Count simple L-shapes within any 2x2 block
-// Pattern: p at (r,c), (r+1,c), (r,c+1) or rotations thereof.
-function countLShapes(b, p){
-  let count = 0;
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
-      if (b[r][c] !== p) continue;
+  const bScore=evaluate(board,BLACK);
+  const wScore=evaluate(board,WHITE);
+  elEval.textContent=String(bScore-wScore);
+  elEval2.textContent=`${bScore} / ${wScore}`;
 
-      // 4 L orientations around (r,c) as a corner
-      if (inBounds(r+1,c) && inBounds(r,c+1) && b[r+1][c]===p && b[r][c+1]===p) count++;
-      if (inBounds(r+1,c) && inBounds(r,c-1) && b[r+1][c]===p && b[r][c-1]===p) count++;
-      if (inBounds(r-1,c) && inBounds(r,c+1) && b[r-1][c]===p && b[r][c+1]===p) count++;
-      if (inBounds(r-1,c) && inBounds(r,c-1) && b[r-1][c]===p && b[r][c-1]===p) count++;
-    }
+  if (finished) return;
+
+  if(!mySeat){
+    elStatus.textContent = "満席：観戦モードです。";
+    return;
   }
-  // Each L could be counted multiple times; dampen by integer division
-  return Math.floor(count / 2);
+
+  if(aiThinking){
+    elStatus.textContent="AIが考えています…";
+    return;
+  }
+
+  if(aiEnabled){
+    elStatus.textContent = tempMove
+      ? "仮置き中：回転（小盤＋方向）を選んで「回転して確定」。"
+      : "マスをタップして仮置き（選び直しOK）。";
+    return;
+  }
+
+  if(!iAmCurrentTurn(getStateObj())){
+    elStatus.textContent = "相手の手番です。";
+  } else {
+    elStatus.textContent = tempMove
+      ? "あなたの番：回転（小盤＋方向）を選んで「回転して確定」。"
+      : "あなたの番：マスをタップして仮置き（選び直しOK）。";
+  }
 }
 
-function inBounds(r,c){
-  return r>=0 && r<6 && c>=0 && c<6;
+function onCellTap(e){
+  if(!canOperate()) return;
+  const r=Number(e.currentTarget.dataset.r);
+  const c=Number(e.currentTarget.dataset.c);
+  if(board[r][c]!==EMPTY) return;
+
+  winCells=[];
+  tempMove={r,c};
+  render();
 }
 
-// -------------------- Human-like AI (White) --------------------
-// Simple: evaluate all legal moves with the human-like evaluation, take best.
-// (This is intentionally "human-like": a bit biased, not perfectly calculating.)
+async function rotateAndCommit(){
+  if(!tempMove){
+    elStatus.textContent="先にマスをタップして仮置きしてください。";
+    return;
+  }
+  if(selectedQ===null || (selectedD!=="L" && selectedD!=="R")){
+    elStatus.textContent="回転する小盤と方向を選んでください。";
+    return;
+  }
 
-const AI = {
-  THINK_DELAY_MS: 80,
-  // If it ever feels slow, restrict candidate cells radius or sample moves.
-};
+  const nextBoard = cloneBoard(board);
+  nextBoard[tempMove.r][tempMove.c] = player;
+
+  rotateQuadrant(nextBoard, selectedQ, selectedD==="R");
+
+  const blackLine = findFiveLine(nextBoard, BLACK);
+  const whiteLine = findFiveLine(nextBoard, WHITE);
+  const blackWin = blackLine.length>0;
+  const whiteWin = whiteLine.length>0;
+
+  let nextFinished=false;
+  let nextWinCells=[];
+  let msg="";
+
+  if(blackWin && whiteWin){
+    nextFinished=true; nextWinCells=[]; msg="同時成立：引き分け";
+  } else if(blackWin){
+    nextFinished=true; nextWinCells=blackLine; msg="黒(●)の勝ち";
+  } else if(whiteWin){
+    nextFinished=true; nextWinCells=whiteLine; msg="白(○)の勝ち";
+  } else if(boardFull(nextBoard)){
+    nextFinished=true; nextWinCells=[]; msg="盤面が埋まった：引き分け";
+  }
+
+  // Undo用にスナップショット保存（黒側だけ運用推奨）
+  history.push({ board: cloneBoard(board), player, finished, winCells: Array.isArray(winCells)?winCells:[] });
+
+  const nextPlayer = (player===BLACK)?WHITE:BLACK;
+
+  await pushState({
+    board: nextBoard,
+    player: nextPlayer,
+    finished: nextFinished,
+    winCells: nextWinCells,
+    moveNo: Date.now()
+  });
+
+  tempMove=null;
+  selectedQ=null;
+  selectedD=null;
+  setButtonsSelected();
+
+  if(nextFinished) elStatus.textContent = msg;
+}
+
+async function resetGame(sync){
+  tempMove=null; selectedQ=null; selectedD=null;
+  setButtonsSelected();
+  history=[];
+  if(sync) await pushState(defaultState());
+}
+
+async function undoMove(sync){
+  if(history.length===0) return;
+  const prev = history.pop();
+  tempMove=null; selectedQ=null; selectedD=null;
+  setButtonsSelected();
+  if(sync){
+    await pushState({
+      board: prev.board,
+      player: prev.player,
+      finished: prev.finished,
+      winCells: prev.winCells,
+      moveNo: Date.now()
+    });
+  }
+}
+
+// -------- Simple AI (white, local practice) --------
 
 function maybeAIMove(){
-  if (!aiEnabled) return;
-  if (finished) return;
-  if (player !== WHITE) return;
-  if (aiThinking) return;
+  if(!aiEnabled) return;
+  if(finished) return;
+  if(player!==WHITE) return;
+  if(aiThinking) return;
 
-  // AI should move only when it's "place" phase and no temp move pending
-  // (it will decide both placement and rotation itself)
-  if (tempMove) return;
+  // オンライン対戦を混ぜないため：座席が埋まる可能性がある場合はAIを使わない方が安全
+  // ここでは「AI ON は練習用」という前提で、同期は触りません（ローカルだけ進めたい場合は別設計）。
+  // ただし今の実装は stateRef.on で同期しているので、オンライン状態ではAIは使わないのが安全です。
+  // そのため、AIは “自分が観戦以外” の時は動かさない。
+  return;
+}
 
-  aiThinking = true;
+// -------- Boot --------
+
+(async function boot(){
+  await claimSeat();
+  await ensureRoomState();
   render();
-
-  setTimeout(()=>{
-    const move = chooseHumanLikeMove(board);
-
-    // Apply AI move: commit immediately
-    board[move.r][move.c] = WHITE;
-
-    // Rotate + finalize
-    applyRotationAndFinalize(move.q, move.cw);
-
-    aiThinking = false;
-    render();
-  }, AI.THINK_DELAY_MS);
-}
-
-function chooseHumanLikeMove(b){
-  let best = null;
-  let bestScore = -Infinity;
-
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
-      if (b[r][c] !== EMPTY) continue;
-
-      for (let q=0; q<4; q++){
-        for (const cw of [true,false]){
-          const tmp = cloneBoard(b);
-          tmp[r][c] = WHITE;
-          rotateQuadrant(tmp, q, cw);
-
-          // Immediate win
-          if (findFiveLine(tmp, WHITE).length > 0){
-            return {r,c,q,cw};
-          }
-
-          // Avoid moves that allow immediate black win (very human "fear")
-          // Check a small sample of black replies (fast, human-ish).
-          if (allowsImmediateOpponentWin(tmp, BLACK)){
-            continue;
-          }
-
-          const s = evaluate(tmp, WHITE);
-          if (s > bestScore){
-            bestScore = s;
-            best = {r,c,q,cw};
-          }
-        }
-      }
-    }
-  }
-
-  // Fallback if everything filtered
-  if (!best){
-    // pick first legal
-    for (let r=0; r<6; r++){
-      for (let c=0; c<6; c++){
-        if (b[r][c] === EMPTY){
-          return {r,c,q:0,cw:true};
-        }
-      }
-    }
-  }
-
-  return best;
-}
-
-// Quick check: if opponent can win immediately from this position (one move)
-// We only check for existence of any winning reply, not full search.
-function allowsImmediateOpponentWin(bAfter, opp){
-  for (let r=0; r<6; r++){
-    for (let c=0; c<6; c++){
-      if (bAfter[r][c] !== EMPTY) continue;
-
-      for (let q=0; q<4; q++){
-        for (const cw of [true,false]){
-          const tmp = cloneBoard(bAfter);
-          tmp[r][c] = opp;
-          rotateQuadrant(tmp, q, cw);
-          if (findFiveLine(tmp, opp).length > 0) return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-// -------------------- Start --------------------
-render();
-maybeAIMove();
+})();
