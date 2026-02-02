@@ -2,7 +2,6 @@
   --bg:#0b0c10; --fg:#e6e6e6; --muted:#a7a7a7;
   --card:#14161c; --line:#2a2e3a;
   --cell:#10121a; --cell2:#0f1118;
-  --black:#222; --white:#f3f3f3;
 }
 
 *{ box-sizing:border-box; }
@@ -15,7 +14,43 @@ header{ border-bottom:1px solid var(--line); }
 footer{ border-top:1px solid var(--line); color:var(--muted); }
 
 .title{ font-weight:700; font-size:16px; }
-.status{ margin-top:6px; color:var(--muted); font-size:13px; }
+.status{ margin-top:8px; color:var(--muted); font-size:13px; }
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-top:10px;
+}
+.turnBig{
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:0.2px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#0f1118;
+}
+.toggles{ display:flex; gap:10px; align-items:center; }
+.toggle{
+  display:flex; gap:8px; align-items:center;
+  padding:8px 10px; border:1px solid var(--line);
+  border-radius:12px; background:#0f1118; font-size:13px;
+}
+.toggle input{ transform:scale(1.1); }
+
+.hud{
+  display:flex; gap:10px; flex-wrap:wrap;
+  margin-top:10px;
+}
+.hudItem{ display:flex; gap:8px; align-items:center; }
+.hudLabel{ color:var(--muted); font-size:12px; }
+.pill{
+  padding:6px 10px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:#0f1118;
+  font-size:13px;
+}
+.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
 main{
   display:grid;
@@ -36,7 +71,6 @@ main{
   display:grid;
   grid-template-columns: repeat(6, 1fr);
   gap:4px;
-  position:relative;
 }
 
 .cell{
@@ -50,12 +84,20 @@ main{
   justify-content:center;
   font-size:22px;
   user-select:none;
+  position:relative;
 }
-.cell[data-mark="1"]::after{
-  content:"●"; color:var(--fg);
+.cell[data-mark="1"]::after{ content:"●"; }
+.cell[data-mark="2"]::after{ content:"○"; }
+
+/* 勝利ラインのハイライト */
+.cell.win{
+  outline:3px solid #ffd24d;
 }
-.cell[data-mark="2"]::after{
-  content:"○"; color:var(--fg);
+.cell.win::before{
+  content:"";
+  position:absolute; inset:0;
+  border-radius:10px;
+  background:rgba(255,210,77,0.12);
 }
 
 .controls{
@@ -76,17 +118,8 @@ button{
   font-size:14px;
 }
 button:active{ transform:scale(0.98); }
-
 .primary{ background:#1b1f2a; border-color:#3b4256; }
 
-.step{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.pill{
-  padding:6px 10px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  color:var(--fg);
-  font-size:13px;
-}
 .quad button.selected, .dir button.selected{
   outline:2px solid #5b7cff;
 }
