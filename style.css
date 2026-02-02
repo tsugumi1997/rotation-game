@@ -1,184 +1,54 @@
-:root{
-  /* 明るい木目風（全体トーン） */
-  --bg:#f5efe6;      
-  --fg:#2b2b2b;      
-  --muted:#6b6b6b;   
-  --card:#fff8ee;    
-  --line:#c9b8a6;    
+/* style.css（盤が必ず見える版） */
 
-  /* 盤面のマス */
-  --cell:#ead7b7;
-  --cell2:#e0c89a;
-
-  /* アクセント */
-  --accent:#5b7cff;
-  --win:#b98500;     
-  --winFill: rgba(185,133,0,0.14);
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-*{ box-sizing:border-box; }
-body{
-  margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial;
-  background:var(--bg);
-  color:var(--fg);
+header, main, footer {
+  padding: 12px;
 }
 
-header, footer{ padding:12px 14px; }
-header{ border-bottom:1px solid var(--line); }
-footer{ border-top:1px solid var(--line); color:var(--muted); }
+.board-wrap { display: flex; justify-content: center; margin: 12px 0; }
 
-.title{ font-weight:700; font-size:16px; }
-.status{ margin-top:8px; color:var(--muted); font-size:13px; }
-
-.topbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-top:10px;
+.board {
+  display: grid;
+  grid-template-columns: repeat(6, 44px);
+  grid-template-rows: repeat(6, 44px);
+  gap: 6px;
+  padding: 10px;
+  border: 2px solid #444;
+  border-radius: 12px;
+  background: #f6f2ea;
 }
 
-.turnBig{
-  font-size:22px;
-  font-weight:800;
-  letter-spacing:0.2px;
-  padding:10px 12px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:var(--card);
+.cell {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 2px solid #666;
+  background: #fff;
+  box-sizing: border-box;
 }
 
-.toggles{ display:flex; gap:10px; align-items:center; }
-.toggle{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  padding:8px 10px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:var(--card);
-  font-size:13px;
-}
-.toggle input{ transform:scale(1.1); }
+.cell[data-mark="1"] { background: #222; }
+.cell[data-mark="2"] { background: #eee; border-color: #444; }
 
-.hud{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:10px;
-}
-.hudItem{ display:flex; gap:8px; align-items:center; }
-.hudLabel{ color:var(--muted); font-size:12px; }
-.pill{
-  padding:6px 10px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:var(--card);
-  font-size:13px;
-}
-.mono{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+.cell.win { outline: 4px solid #ffcc00; }
+
+.turnBig {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 8px 0;
 }
 
-main{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap:12px;
-  padding:12px 14px 16px;
-}
+.pill { padding: 2px 8px; border: 1px solid #aaa; border-radius: 999px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.board-wrap{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
+.quad, .dir { display: grid; gap: 8px; }
+.quad { grid-template-columns: repeat(2, 110px); }
+.dir  { grid-template-columns: repeat(2, 60px); }
 
-.board{
-  width:min(92vw, 420px);
-  margin:0 auto;
-  display:grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap:4px;
-}
-
-.cell{
-  width:100%;
-  aspect-ratio: 1 / 1;
-  border:1px solid var(--line);
-  border-radius:10px;
-  background:linear-gradient(180deg, var(--cell), var(--cell2));
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:22px;
-  user-select:none;
-  position:relative;
-}
-
-/* 石表示 */
-.cell[data-mark="1"]::after{ content:"●"; }
-.cell[data-mark="2"]::after{ content:"○"; }
-
-/* 勝利ラインのハイライト */
-.cell.win{
-  outline:3px solid var(--win);
-}
-.cell.win::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:10px;
-  background:var(--winFill);
-}
-
-/* 操作パネル */
-.controls{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
-
-.row{
-  margin-top:10px;
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-.label{
-  color:var(--muted);
-  font-size:13px;
-  min-width:92px;
-}
-
-button{
-  border:1px solid var(--line);
-  background:var(--card);
-  color:var(--fg);
-  padding:10px 12px;
-  border-radius:10px;
-  font-size:14px;
-}
-button:active{ transform:scale(0.98); }
-
-.primary{
-  background:#f1e2c7;
-  border-color:#d6bf9e;
-}
-
-/* ===== ここが今回の本題 ===== */
-/* 回転小盤ボタンを2×2グリッド表示に */
-.quad{
-  display:grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap:8px;
-}
-
-.quad button.selected, .dir button.selected{
-  outline:2px solid var(--accent);
-}
+button { padding: 10px 12px; border-radius: 10px; border: 1px solid #999; background: #fff; }
+button.selected { border-width: 2px; border-color: #333; }
+.primary { background: #f1e2b9; }
