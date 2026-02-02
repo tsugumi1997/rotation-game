@@ -18,43 +18,44 @@
       </label>
     </div>
 
-    <div class="hud" id="hud">
-      <div class="turnBig" id="turnText">Turn: -</div>
+    <div id="hud">
+      <div class="turnBig" id="turnText">—</div>
 
       <div class="hudRow">
-        <span class="pill">Phase <span class="mono" id="phaseText">-</span></span>
+        <span class="pill">Phase <span class="mono" id="phaseText">—</span></span>
         <span class="pill">Eval <span class="mono" id="evalText">0</span></span>
         <span class="pill">B/W <span class="mono" id="bwText">0 / 0</span></span>
-        <span class="pill">Room <span class="mono" id="roomCode">-</span></span>
+        <span class="pill">Room <span class="mono" id="roomLabel">—</span></span>
       </div>
 
       <div class="hudRow">
-        <span class="pill">You <span class="mono" id="seatLabel">-</span></span>
-        <span class="pill">Status <span class="mono" id="statusText">ok</span></span>
+        <span class="pill">You <span class="mono" id="seatLabel">—</span></span>
+        <span class="pill">Status <span class="mono" id="statusText">—</span></span>
       </div>
     </div>
   </header>
 
   <main>
     <div class="boardWrap">
-      <div id="board" class="board" aria-label="board"></div>
+      <!-- 盤は app.js がここに生成します -->
+      <div id="board" class="board"></div>
     </div>
 
     <section class="panel">
       <div class="panelTitle">回転 小盤</div>
-
-      <!-- 見た目：左上 右上 / 左下 右下 -->
       <div class="quad">
-        <button class="qbtn" data-quad="0">左上</button>
-        <button class="qbtn" data-quad="1">右上</button>
-        <button class="qbtn" data-quad="2">左下</button>
-        <button class="qbtn" data-quad="3">右下</button>
+        <!-- 左上=0, 右上=1, 左下=2, 右下=3 -->
+        <button class="qbtn" data-q="0">左上</button>
+        <button class="qbtn" data-q="1">右上</button>
+        <button class="qbtn" data-q="2">左下</button>
+        <button class="qbtn" data-q="3">右下</button>
       </div>
 
       <div class="panelTitle">方向</div>
       <div class="dir">
-        <button class="dbtn" data-dir="L">左</button>
-        <button class="dbtn" data-dir="R">右</button>
+        <!-- ★重要：app.js は data-d を Number で読む想定 -->
+        <button class="dbtn" data-d="-1">左</button>
+        <button class="dbtn" data-d="1">右</button>
       </div>
 
       <div class="row">
@@ -62,18 +63,29 @@
         <button id="undo">Undo</button>
         <button id="reset">Reset</button>
       </div>
+
+      <div class="roomBox">
+        <div class="roomRow">
+          <input id="roomCode" class="roomInput" placeholder="room番号（例: 123456）" />
+          <button id="applyRoom">適用</button>
+          <button id="copyLink">共有URL</button>
+        </div>
+        <div class="roomHint">
+          オンライン対戦：同じ Room で同期します（例：?room=123456）
+        </div>
+      </div>
     </section>
 
     <footer class="foot">
       オンライン対戦：同じRoomで同期します（例：?room=123456）
     </footer>
+
+    <!-- Firebase (compat / CDN) ※ app.js が firebase を参照する想定 -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <!-- Main -->
+    <script src="./app.js"></script>
   </main>
-
-  <!-- Firebase（compat / CDN）※これが無くても盤は表示されます -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-  <!-- メイン -->
-  <script src="./app.js"></script>
 </body>
 </html>
