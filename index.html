@@ -18,25 +18,19 @@
       </label>
     </div>
 
-    <div class="hud">
-      <div class="turnBig" id="turnBig">—</div>
+    <div class="hud" id="hud">
+      <div class="turnBig" id="turnText">Turn: -</div>
 
       <div class="hudRow">
-        <span class="pill">Phase <span class="mono" id="phase">—</span></span>
-        <span class="pill">Eval <span class="mono" id="eval">0</span></span>
-        <span class="pill">B/W <span class="mono" id="bw">0 / 0</span></span>
-        <span class="pill">Room <span class="mono" id="roomLabel">—</span></span>
+        <span class="pill">Phase <span class="mono" id="phaseText">-</span></span>
+        <span class="pill">Eval <span class="mono" id="evalText">0</span></span>
+        <span class="pill">B/W <span class="mono" id="bwText">0 / 0</span></span>
+        <span class="pill">Room <span class="mono" id="roomCode">-</span></span>
       </div>
 
       <div class="hudRow">
-        <span class="pill">You <span class="mono" id="seatLabel">—</span></span>
-        <span class="pill">Status <span class="mono" id="status">—</span></span>
-      </div>
-
-      <div class="hudRow">
-        <input id="roomCode" class="roomInput" inputmode="numeric" placeholder="room (例: 123456)" />
-        <button id="joinRoom" class="secondary">Join</button>
-        <button id="copyLink" class="secondary">Copy link</button>
+        <span class="pill">You <span class="mono" id="seatLabel">-</span></span>
+        <span class="pill">Status <span class="mono" id="statusText">ok</span></span>
       </div>
     </div>
   </header>
@@ -48,21 +42,23 @@
 
     <section class="panel">
       <div class="panelTitle">回転 小盤</div>
-      <div class="quad" id="quadBtns">
-        <button class="qbtn" data-q="0">左上</button>
-        <button class="qbtn" data-q="1">右上</button>
-        <button class="qbtn" data-q="2">左下</button>
-        <button class="qbtn" data-q="3">右下</button>
+
+      <!-- 見た目：左上 右上 / 左下 右下 -->
+      <div class="quad">
+        <button class="qbtn" data-quad="0">左上</button>
+        <button class="qbtn" data-quad="1">右上</button>
+        <button class="qbtn" data-quad="2">左下</button>
+        <button class="qbtn" data-quad="3">右下</button>
       </div>
 
       <div class="panelTitle">方向</div>
-      <div class="dir" id="dirBtns">
-        <button class="dbtn" data-d="L">左</button>
-        <button class="dbtn" data-d="R">右</button>
+      <div class="dir">
+        <button class="dbtn" data-dir="L">左</button>
+        <button class="dbtn" data-dir="R">右</button>
       </div>
 
       <div class="row">
-        <button class="primary" id="commit">回転して確定</button>
+        <button id="commit" class="primary">回転して確定</button>
         <button id="undo">Undo</button>
         <button id="reset">Reset</button>
       </div>
@@ -73,11 +69,11 @@
     </footer>
   </main>
 
-  <!-- Firebase (compat / CDN) ※ module(import)は使いません -->
+  <!-- Firebase（compat / CDN）※これが無くても盤は表示されます -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <!-- ゲーム本体 -->
+  <!-- メイン -->
   <script src="./app.js"></script>
 </body>
 </html>
