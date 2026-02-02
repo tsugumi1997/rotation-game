@@ -1,14 +1,29 @@
 :root{
-  --bg:#0b0c10; --fg:#e6e6e6; --muted:#a7a7a7;
-  --card:#14161c; --line:#2a2e3a;
-  --cell:#10121a; --cell2:#0f1118;
+  /* 明るい木目風（全体トーン） */
+  --bg:#f5efe6;      /* 画面の背景 */
+  --fg:#2b2b2b;      /* 文字色 */
+  --muted:#6b6b6b;   /* 薄い文字 */
+  --card:#fff8ee;    /* パネル背景 */
+  --line:#c9b8a6;    /* 枠線 */
+
+  /* 盤面のマス（木の濃淡） */
+  --cell:#ead7b7;
+  --cell2:#e0c89a;
+
+  /* アクセント */
+  --accent:#5b7cff;
+  --win:#b98500;     /* 勝利ライン枠 */
+  --winFill: rgba(185,133,0,0.14);
 }
 
 *{ box-sizing:border-box; }
 body{
-  margin:0; font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial;
-  background:var(--bg); color:var(--fg);
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial;
+  background:var(--bg);
+  color:var(--fg);
 }
+
 header, footer{ padding:12px 14px; }
 header{ border-bottom:1px solid var(--line); }
 footer{ border-top:1px solid var(--line); color:var(--muted); }
@@ -17,9 +32,13 @@ footer{ border-top:1px solid var(--line); color:var(--muted); }
 .status{ margin-top:8px; color:var(--muted); font-size:13px; }
 
 .topbar{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:12px; margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:10px;
 }
+
 .turnBig{
   font-size:22px;
   font-weight:800;
@@ -27,18 +46,26 @@ footer{ border-top:1px solid var(--line); color:var(--muted); }
   padding:10px 12px;
   border:1px solid var(--line);
   border-radius:12px;
-  background:#0f1118;
+  background:var(--card);
 }
+
 .toggles{ display:flex; gap:10px; align-items:center; }
 .toggle{
-  display:flex; gap:8px; align-items:center;
-  padding:8px 10px; border:1px solid var(--line);
-  border-radius:12px; background:#0f1118; font-size:13px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--card);
+  font-size:13px;
 }
 .toggle input{ transform:scale(1.1); }
 
 .hud{
-  display:flex; gap:10px; flex-wrap:wrap;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
   margin-top:10px;
 }
 .hudItem{ display:flex; gap:8px; align-items:center; }
@@ -47,10 +74,12 @@ footer{ border-top:1px solid var(--line); color:var(--muted); }
   padding:6px 10px;
   border:1px solid var(--line);
   border-radius:999px;
-  background:#0f1118;
+  background:var(--card);
   font-size:13px;
 }
-.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
 
 main{
   display:grid;
@@ -58,11 +87,13 @@ main{
   gap:12px;
   padding:12px 14px 16px;
 }
+
 .board-wrap{
   background:var(--card);
   border:1px solid var(--line);
   border-radius:12px;
   padding:12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
 .board{
@@ -86,40 +117,60 @@ main{
   user-select:none;
   position:relative;
 }
+
+/* 石表示 */
 .cell[data-mark="1"]::after{ content:"●"; }
 .cell[data-mark="2"]::after{ content:"○"; }
 
 /* 勝利ラインのハイライト */
 .cell.win{
-  outline:3px solid #ffd24d;
+  outline:3px solid var(--win);
 }
 .cell.win::before{
   content:"";
-  position:absolute; inset:0;
+  position:absolute;
+  inset:0;
   border-radius:10px;
-  background:rgba(255,210,77,0.12);
+  background:var(--winFill);
 }
 
+/* 操作パネル */
 .controls{
   background:var(--card);
   border:1px solid var(--line);
   border-radius:12px;
   padding:12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
-.row{ margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.label{ color:var(--muted); font-size:13px; min-width:92px; }
+
+.row{
+  margin-top:10px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.label{
+  color:var(--muted);
+  font-size:13px;
+  min-width:92px;
+}
 
 button{
   border:1px solid var(--line);
-  background:#0f1118;
+  background:var(--card);
   color:var(--fg);
   padding:10px 12px;
   border-radius:10px;
   font-size:14px;
 }
 button:active{ transform:scale(0.98); }
-.primary{ background:#1b1f2a; border-color:#3b4256; }
+
+.primary{
+  background:#f1e2c7;
+  border-color:#d6bf9e;
+}
 
 .quad button.selected, .dir button.selected{
-  outline:2px solid #5b7cff;
+  outline:2px solid var(--accent);
 }
