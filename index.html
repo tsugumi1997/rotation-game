@@ -41,7 +41,7 @@
     </div>
 
     <section class="panel">
-      <div class="panelTitle">先攻・後攻</div>
+      <div class="panelTitle">先攻・後攻（ローカル用）</div>
       <div class="row">
         <label class="pill" style="gap:10px;">
           <input type="radio" name="humanColor" id="humanBlack" value="B" checked>
@@ -51,6 +51,9 @@
           <input type="radio" name="humanColor" id="humanWhite" value="W">
           後攻（白）
         </label>
+      </div>
+      <div class="roomHint">
+        ※オンライン（Room）では席は自動割当です（先に入った人=黒、次=白）
       </div>
 
       <div class="panelTitle">回転 小盤</div>
@@ -89,6 +92,7 @@
       オンライン対戦：同じRoomで同期します（例：?room=123456）
     </footer>
 
+    <!-- Firebase (compat / CDN) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
