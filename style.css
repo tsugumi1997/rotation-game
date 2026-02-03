@@ -253,3 +253,14 @@ button.primary{
   margin: 12px auto 0;
   color: #555;
 }
+/* 回転小盤・方向の「選択中」表示 */
+.qbtn.selected, .dbtn.selected{
+  background: #ead8b8;
+  border-color: #8a6a3f;
+  box-shadow: 0 0 0 3px rgba(138,106,63,.25);
+}
+
+/* 押せない状態の見た目（任意） */
+.qbtn:disabled, .dbtn:disabled{
+  opacity: .45;
+}
