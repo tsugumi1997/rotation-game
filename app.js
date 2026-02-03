@@ -161,7 +161,7 @@
     pendingColor = turn;
 
     // 次は回転選択へ
-    phase = "rotate";
+    // phase = "rotate";
     winCells.clear();
     render();
     syncIfOnline();
