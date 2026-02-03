@@ -34,12 +34,12 @@
   let fixed = Array(36).fill(false);
 
   let turn = BLACK;
-  let phase = "place";
-  let pendingIndex = -1;
+  let phase = "place";        // "place" | "rotate"
+  let pendingIndex = -1;      // 仮置き位置
   let pendingColor = EMPTY;
 
-  let selectedQuad = 0;
-  let selectedDir = 1;
+  let selectedQuad = 0;       // 0=左上,1=右上,2=左下,3=右下
+  let selectedDir = 1;        // -1=左, 1=右
 
   let history = [];
   let winCells = new Set();
@@ -114,9 +114,7 @@
       const u = new URL(location.href);
       const r = u.searchParams.get("room");
       return r && r.trim() ? r.trim() : "";
-    } catch {
-      return "";
-    }
+    } catch { return ""; }
   }
 
   function updateURLRoom(r) {
@@ -139,8 +137,6 @@
   }
 
   async function claimSeatTransaction() {
-    // seats: { black: clientId, white: clientId, tBlack: number, tWhite: number }
-    // 先に入った人から黒→白、埋まってたら観戦
     seat = "";
 
     const ref = seatsRef();
@@ -162,7 +158,7 @@
         cur.tWhite = Date.now();
         return cur;
       }
-      return cur; // 席なし（観戦）
+      return cur; // 観戦
     });
 
     const val = result && result.snapshot ? result.snapshot.val() : null;
@@ -172,13 +168,13 @@
     else if (val.white === clientId) seat = "W";
     else seat = "S";
 
-    // presence（オンライン中かどうか）…切断時に消す
+    // presence + onDisconnect
     try {
       const p = presenceRef();
       p.set({ seat, ts: Date.now() });
       p.onDisconnect().remove();
 
-      // 自分の席は切断時に開放（雑にremove）
+      // 自分の席は切断時に開放（簡易）
       if (seat === "B") ref.child("black").onDisconnect().remove();
       if (seat === "W") ref.child("white").onDisconnect().remove();
     } catch {}
@@ -200,7 +196,6 @@
     detachOnlineListeners();
     if (!onlineEnabled || !db || !room) return;
 
-    // state
     const onState = (snap) => {
       const data = snap.val();
       if (!data) return;
@@ -221,7 +216,6 @@
     stateListener = onState;
     stateRef().on("value", onState);
 
-    // seats（表示だけ更新）
     const onSeats = (snap) => {
       const s = snap.val() || {};
       if (s.black === clientId) seat = "B";
@@ -262,6 +256,8 @@
       lockLocalOnlyUI(false);
       setStatus("Room未設定：ローカルで遊べます");
       render();
+      // ローカルAIの再評価
+      maybeAIMove();
       return;
     }
 
@@ -272,6 +268,7 @@
       lockLocalOnlyUI(false);
       setStatus("Firebase未接続：ローカルで遊べます（Room同期不可）");
       render();
+      maybeAIMove();
       return;
     }
 
@@ -280,12 +277,15 @@
 
     await claimSeatTransaction();
 
-    setStatus(seat === "B" ? "黒で参加（先攻）" : seat === "W" ? "白で参加（後攻）" : "観戦中（席が埋まっています）");
+    setStatus(
+      seat === "B" ? "黒で参加（先攻）" :
+      seat === "W" ? "白で参加（後攻）" :
+      "観戦中（席が埋まっています）"
+    );
 
     attachOnlineListeners();
 
-    // stateが無いroomなら作る（初回だけ）
-    // 既に誰かが作っていたら上書きしないため、transactionで初期化する
+    // state初期化（存在しなければ作る）
     try {
       await stateRef().transaction((cur) => {
         if (cur) return cur;
@@ -320,7 +320,7 @@
     }
   }
 
-  // ===== 評価（簡易） =====
+  // ===== 簡易評価表示 =====
   function countBW(arr) {
     let b = 0, w = 0;
     for (const v of arr) {
@@ -342,20 +342,15 @@
     if (room) {
       if (seat === "B" && turn === BLACK) return true;
       if (seat === "W" && turn === WHITE) return true;
-      return false; // 観戦 or 相手の番
+      return false;
     } else {
-      // ローカル：自分の色の番だけ操作
       return turn === humanColor;
     }
   }
 
   // ===== 描画 =====
   function render() {
-    if (elTurnText) {
-      elTurnText.textContent = (turn === BLACK ? "黒の手番" : "白の手番");
-      elTurnText.classList.toggle("isBlack", turn === BLACK);
-      elTurnText.classList.toggle("isWhite", turn === WHITE);
-    }
+    if (elTurnText) elTurnText.textContent = (turn === BLACK ? "黒の手番" : "白の手番");
     if (elPhaseText) elPhaseText.textContent = phase;
     if (elEvalText) elEvalText.textContent = String(currentEvalSimple());
 
@@ -363,7 +358,6 @@
     if (elBWText) elBWText.textContent = `${b} / ${w}`;
     if (elRoomLabel) elRoomLabel.textContent = room ? room : "—";
 
-    // You表示
     let you = "—";
     if (room) you = seat || "—";
     else you = (humanColor === BLACK ? "B" : "W");
@@ -392,7 +386,7 @@
     if (btnUndo) btnUndo.disabled = (history.length === 0);
   }
 
-  // ===== クリック：マス（確定前なら選び直しOK） =====
+  // ===== マスクリック：仮置き（選び直しOK） =====
   function onCellClick(i) {
     if (winCells.size > 0) return;
     if (!canHumanActNow()) return;
@@ -424,7 +418,6 @@
 
   // ===== 回転処理 =====
   function quadIndices(q) {
-    // 0=左上,1=右上,2=左下,3=右下
     const rowBase = (q === 0 || q === 1) ? 0 : 3;
     const colBase = (q === 0 || q === 2) ? 0 : 3;
     const idx = [];
@@ -457,7 +450,7 @@
     rotateQuadrantOn(board, fixed, q, dir);
   }
 
-  // ===== 勝利判定（5連以上） =====
+  // ===== 勝利判定 =====
   function computeWinCells(bd) {
     const res = new Set();
     function addRun(run) { if (run.length >= 5) run.forEach(x => res.add(x)); }
@@ -547,6 +540,7 @@
     setStatus("Undoしました");
     render();
     syncToOnline();
+    maybeAIMove(); // ★ローカルAI再評価
   }
 
   function reset() {
@@ -563,14 +557,163 @@
     setStatus("リセットしました");
     render();
     syncToOnline();
+    maybeAIMove(); // ★ローカルAI再評価
   }
 
   // ===== ローカル：人間色の切替 =====
   function applyHumanColorFromUI() {
     if (room) return; // オンラインでは無効
     humanColor = (rbHumanWhite && rbHumanWhite.checked) ? WHITE : BLACK;
-    reset();
-    // 後攻（白）にした＆AIがONならAI(黒)が動く…はここでは簡易のため省略（必要なら追加できます）
+    reset();          // reset内でmaybeAIMoveも呼ばれる
+  }
+
+  // ===== “人間っぽいAI”（軽量） =====
+  function listEmptyCells(bd, fx) {
+    const res = [];
+    for (let i = 0; i < 36; i++) if (!fx[i] && bd[i] === EMPTY) res.push(i);
+    return res;
+  }
+
+  function simulateMove(color, placeIdx, q, dir) {
+    const bd = board.slice();
+    const fx = fixed.slice();
+    bd[placeIdx] = color; fx[placeIdx] = true;
+    rotateQuadrantOn(bd, fx, q, dir);
+    return { bd, fx, wins: computeWinCells(bd) };
+  }
+
+  function scorePosition(bd, myColor) {
+    const opp = (myColor === BLACK ? WHITE : BLACK);
+    const lines = [];
+    for (let r = 0; r < 6; r++) lines.push(Array.from({ length: 6 }, (_, c) => r * 6 + c));
+    for (let c = 0; c < 6; c++) lines.push(Array.from({ length: 6 }, (_, r) => r * 6 + c));
+    lines.push([0, 7, 14, 21, 28, 35]);
+    lines.push([5, 10, 15, 20, 25, 30]);
+
+    let score = 0;
+    for (const line of lines) {
+      let my = 0, op = 0;
+      for (const idx of line) {
+        if (bd[idx] === myColor) my++;
+        else if (bd[idx] === opp) op++;
+      }
+      if (my > 0 && op > 0) continue;
+      if (my > 0 && op === 0) score += my * my * 3;
+      if (op > 0 && my === 0) score -= op * op * 2;
+    }
+    return score;
+  }
+
+  function aiChooseMoveHumanLike(my) {
+    const opp = (my === BLACK ? WHITE : BLACK);
+    const empties = listEmptyCells(board, fixed);
+    if (empties.length === 0) return null;
+
+    const candidates = [];
+    for (const idx of empties) {
+      for (let q = 0; q < 4; q++) {
+        for (const d of [-1, 1]) {
+          const sim = simulateMove(my, idx, q, d);
+
+          // 即勝ち
+          if (sim.wins.size > 0) {
+            candidates.push({ idx, q, d, score: 1e9 });
+            continue;
+          }
+
+          // 相手の次の即勝ち脅威を軽く数える
+          let oppThreat = 0;
+          const empt2 = listEmptyCells(sim.bd, sim.fx).slice(0, 26);
+          for (const j of empt2) {
+            let found = false;
+            for (let qq = 0; qq < 4 && !found; qq++) {
+              for (const dd of [-1, 1]) {
+                const bd2 = sim.bd.slice();
+                const fx2 = sim.fx.slice();
+                bd2[j] = opp; fx2[j] = true;
+                rotateQuadrantOn(bd2, fx2, qq, dd);
+                if (computeWinCells(bd2).size > 0) { oppThreat++; found = true; break; }
+              }
+            }
+          }
+
+          const shape = scorePosition(sim.bd, my);
+          const score = shape - oppThreat * 70;
+          candidates.push({ idx, q, d, score });
+        }
+      }
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    const top = candidates.slice(0, 8);
+    const pick = top[Math.floor(Math.random() * Math.min(3, top.length))];
+    return pick || candidates[0];
+  }
+
+  function maybeAIMove() {
+    // ★オンライン中はAI停止
+    if (room) return;
+    if (!cbAiWhite || !cbAiWhite.checked) return;
+    if (winCells.size > 0) return;
+
+    const ai = aiColorLocal();
+    if (turn !== ai) return;               // AIの番だけ動く
+    if (phase !== "place") return;         // まだ確定前の操作中なら待つ
+    if (pendingIndex >= 0) return;         // 仮置きが残ってたら待つ
+
+    const mv = aiChooseMoveHumanLike(ai);
+    if (!mv) return;
+
+    // AIは置いて回して確定まで自動
+    pendingIndex = mv.idx;
+    pendingColor = ai;
+    phase = "rotate";
+    selectedQuad = mv.q;
+    selectedDir = mv.d;
+
+    render();
+    // commitは少し遅らせて見た目が追えるように
+    setTimeout(commitMove, 200);
+  }
+
+  // ===== 確定処理 =====
+  function commitMove() {
+    if (winCells.size > 0) return;
+    if (!canHumanActNow() && !(!room && cbAiWhite && cbAiWhite.checked && turn === aiColorLocal())) {
+      // ローカルAIが呼ぶ場合も通すための保険
+      // （オンラインはcanHumanActNowだけ）
+      if (room) return;
+    }
+
+    if (pendingIndex < 0 || pendingColor === EMPTY) {
+      setStatus("先にマスをタップして仮置きしてください");
+      return;
+    }
+
+    pushHistory();
+
+    board[pendingIndex] = pendingColor;
+    fixed[pendingIndex] = true;
+
+    rotateQuadrant(selectedQuad, selectedDir);
+
+    winCells = computeWinCells(board);
+    if (winCells.size > 0) {
+      setStatus("勝利ライン！");
+      render();
+      syncToOnline();
+      return;
+    }
+
+    pendingIndex = -1;
+    pendingColor = EMPTY;
+    phase = "place";
+    turn = (turn === BLACK ? WHITE : BLACK);
+    setStatus("仮置き：マスをタップ（置き直しOK）");
+
+    render();
+    syncToOnline();
+    maybeAIMove(); // ★ローカルAI再評価（相手番なら動く）
   }
 
   // ===== イベント =====
@@ -607,51 +750,19 @@
     if (rbHumanBlack) rbHumanBlack.addEventListener("change", applyHumanColorFromUI);
     if (rbHumanWhite) rbHumanWhite.addEventListener("change", applyHumanColorFromUI);
 
+    if (cbAiWhite) {
+      cbAiWhite.addEventListener("change", () => {
+        // ローカルだけ：AIをONにした瞬間、AIの番なら動く
+        maybeAIMove();
+      });
+    }
+
     window.addEventListener("error", (ev) => {
       try {
         const msg = ev && ev.message ? ev.message : "Unknown error";
         setStatus("JSエラー: " + msg);
       } catch {}
     });
-  }
-
-  // ===== 確定処理 =====
-  function commitMove() {
-    if (winCells.size > 0) return;
-    if (!canHumanActNow()) return;
-
-    if (pendingIndex < 0 || pendingColor === EMPTY) {
-      setStatus("先にマスをタップして仮置きしてください");
-      return;
-    }
-
-    pushHistory();
-
-    // 仮置きを確定
-    board[pendingIndex] = pendingColor;
-    fixed[pendingIndex] = true;
-
-    // 回転
-    rotateQuadrant(selectedQuad, selectedDir);
-
-    // 勝利判定
-    winCells = computeWinCells(board);
-    if (winCells.size > 0) {
-      setStatus("勝利ライン！");
-      render();
-      syncToOnline();
-      return;
-    }
-
-    // 次の手番へ
-    pendingIndex = -1;
-    pendingColor = EMPTY;
-    phase = "place";
-    turn = (turn === BLACK ? WHITE : BLACK);
-    setStatus("仮置き：マスをタップ（置き直しOK）");
-
-    render();
-    syncToOnline();
   }
 
   // ===== 起動 =====
@@ -675,6 +786,7 @@
     bindEvents();
     winCells = computeWinCells(board);
     render();
+    maybeAIMove(); // ★開始時にAIの番なら動く
   }
 
   if (document.readyState === "loading") {
@@ -682,4 +794,5 @@
   } else {
     boot();
   }
+
 })();
