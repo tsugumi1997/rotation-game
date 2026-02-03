@@ -1,28 +1,21 @@
-/* style.css（全体・置換用：白石と手番を見やすく） */
+/* style.css（盤面：暗め木目調 + 見やすさ維持） */
 
 :root{
-  --bg: #f5f0e7;
+  --bg: #f3eee4;
   --panel: #f7f3ea;
   --ink: #2b2b2b;
 
-  --board-bg: #f2f2f2;
-  --board-border: #2f2f2f;
+  /* 木目っぽい盤 */
+  --board-border: #2a1f16;
 
-  --cell-bg: #ffffff;
-  --cell-border: #2f2f2f;
+  --cell-bg: #fbfbfb;
+  --cell-border: #1f1f1f;
 
   --black: #111111;
-
-  /* ★白石は純白にしない（盤の白と差を作る） */
-  --white-stone: #f3f3f3;
-
-  /* 手番バッジ色 */
-  --turn-black-bg: #111111;
-  --turn-white-bg: #3a3a3a;
+  --white: #ffffff;
 }
 
 *{ box-sizing: border-box; }
-
 body{
   margin:0;
   font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
@@ -38,7 +31,6 @@ header, main, footer{ padding: 12px; }
   justify-content: space-between;
   gap: 12px;
 }
-
 h1{ margin: 0; font-size: 22px; }
 
 .aiToggle{
@@ -54,34 +46,11 @@ h1{ margin: 0; font-size: 22px; }
 
 #hud{ margin-top: 10px; }
 
-/* ===== 手番表示：背景バッジで必ず読めるように ===== */
 .turnBig{
-  display:inline-block;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 900;
   margin: 8px 0 10px;
   letter-spacing: .5px;
-
-  padding: 10px 16px;
-  border-radius: 14px;
-  border: 3px solid #000;
-
-  background: #fff;
-  color: #000;
-
-  box-shadow: 0 2px 0 rgba(0,0,0,.12);
-}
-
-/* 黒番 */
-.turnBig.isBlack{
-  background: var(--turn-black-bg);
-  color: #fff;
-}
-
-/* 白番（★見やすさ最優先：濃い背景＋白文字） */
-.turnBig.isWhite{
-  background: var(--turn-white-bg);
-  color: #fff;
 }
 
 .hudRow{
@@ -101,9 +70,7 @@ h1{ margin: 0; font-size: 22px; }
   background: #fff;
 }
 
-.mono{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
+.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
 .boardWrap{
   display:flex;
@@ -111,19 +78,33 @@ h1{ margin: 0; font-size: 22px; }
   margin: 14px 0 10px;
 }
 
-/* ===== 盤 ===== */
+/* ===== 盤（暗め木目調） ===== */
 .board{
   display:grid;
   grid-template-columns: repeat(6, 52px);
   grid-template-rows: repeat(6, 52px);
   gap: 6px;
+
   padding: 12px;
-  background: var(--board-bg);
+
+  /* 木目っぽい背景（CSSだけでそれっぽく） */
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #6b4a33 0px,
+      #6b4a33 10px,
+      #60422e 10px,
+      #60422e 20px
+    ),
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.10));
+  background-blend-mode: overlay;
+
   border: 4px solid var(--board-border);
   border-radius: 16px;
-  box-shadow: 0 2px 0 rgba(0,0,0,.08);
+  box-shadow: 0 2px 0 rgba(0,0,0,.12);
 }
 
+/* iPhoneで大きすぎる場合に少し縮める */
 @media (max-width: 420px){
   .board{
     grid-template-columns: repeat(6, 46px);
@@ -141,42 +122,28 @@ h1{ margin: 0; font-size: 22px; }
   background: var(--cell-bg);
   cursor: pointer;
   touch-action: manipulation;
+
+  /* 木目の上で浮くように少し影 */
+  box-shadow: 0 1px 0 rgba(0,0,0,.10);
 }
 
 @media (max-width: 420px){
   .cell{ width:46px; height:46px; border-width:3px; }
 }
 
-/* 黒石：深い黒＋内側の微ハイライト */
-.cell[data-mark="1"]{
-  background: var(--black);
-  border-color: #000;
-  box-shadow:
-    0 1px 2px rgba(0,0,0,.25),
-    inset 0 2px 3px rgba(255,255,255,.10),
-    inset 0 -3px 5px rgba(0,0,0,.35);
-}
-
-/* ★白石：黒縁＋外側影＋内側リングで黒番でも必ず見える */
-.cell[data-mark="2"]{
-  background: var(--white-stone);
-  border: 3px solid #000;
-  box-shadow:
-    0 2px 4px rgba(0,0,0,.45),   /* 外側影 */
-    inset 0 0 0 2px #ffffff,    /* 内側白リング */
-    inset 0 2px 4px rgba(255,255,255,.90),
-    inset 0 -4px 6px rgba(0,0,0,.25);
-}
+/* 石：白は黒い縁で見えるように */
+.cell[data-mark="1"]{ background: var(--black); border-color: #000; }
+.cell[data-mark="2"]{ background: var(--white); border-color: #000; }
 
 /* 仮置き（pending） */
 .cell.pending{
-  outline: 5px solid rgba(255, 180, 0, .65);
+  outline: 5px solid rgba(255, 180, 0, .55);
   outline-offset: 2px;
 }
 
 /* 勝利ライン（win） */
 .cell.win{
-  outline: 6px solid rgba(0, 160, 255, .70);
+  outline: 6px solid rgba(0, 160, 255, .65);
   outline-offset: 2px;
 }
 
@@ -229,20 +196,13 @@ button.primary{
   border-color: #cdbda8;
 }
 
-button.selected{
-  outline: 4px solid rgba(120, 90, 60, .35);
-  outline-offset: 2px;
-}
-
 .roomBox{ margin-top: 10px; }
-
 .roomRow{
   display:flex;
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
 }
-
 .roomInput{
   flex: 1 1 180px;
   padding: 12px 12px;
@@ -250,7 +210,6 @@ button.selected{
   border: 2px solid #cdbda8;
   background: #fff;
 }
-
 .roomHint{
   margin-top: 8px;
   color: #555;
