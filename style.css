@@ -1,4 +1,4 @@
-/* style.css（盤面見やすさ優先） */
+/* style.css（白番・白石を見やすく改善） */
 
 :root{
   --bg: #f5f0e7;
@@ -12,7 +12,13 @@
   --cell-border: #2f2f2f;
 
   --black: #111111;
-  --white: #ffffff;
+
+  /* ★白石を「純白」から少しだけグレー寄りにして盤と差を作る */
+  --white-stone: #f1f1f1;
+
+  /* ★白番の表示色（背景） */
+  --turn-white-bg: #2f2f2f;  /* 白番は黒いバッジで出す */
+  --turn-black-bg: #111111;  /* 黒番は同系でOK */
 }
 
 *{ box-sizing: border-box; }
@@ -46,11 +52,33 @@ h1{ margin: 0; font-size: 22px; }
 
 #hud{ margin-top: 10px; }
 
+/* ===== 手番表示：バッジ化して必ず見えるように ===== */
 .turnBig{
-  font-size: 34px;
+  display:inline-block;
+  font-size: 30px;
   font-weight: 900;
   margin: 8px 0 10px;
   letter-spacing: .5px;
+
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 3px solid #000;
+  background: #fff;
+}
+
+/* 黒番/白番で背景を変える（本文は白文字） */
+.turnBig.isBlack{
+  background: var(--turn-black-bg);
+  color: #fff;
+}
+.turnBig.isWhite{
+  background: var(--turn-white-bg);
+  color: #fff;
+}
+
+/* turnBigの中身が白背景に埋もれないように少し影 */
+.turnBig{
+  box-shadow: 0 2px 0 rgba(0,0,0,.12);
 }
 
 .hudRow{
@@ -78,7 +106,7 @@ h1{ margin: 0; font-size: 22px; }
   margin: 14px 0 10px;
 }
 
-/* ===== 盤（見やすさ重視） ===== */
+/* ===== 盤 ===== */
 .board{
   display:grid;
   grid-template-columns: repeat(6, 52px);
@@ -91,7 +119,6 @@ h1{ margin: 0; font-size: 22px; }
   box-shadow: 0 2px 0 rgba(0,0,0,.08);
 }
 
-/* iPhoneで大きすぎる場合に少し縮める */
 @media (max-width: 420px){
   .board{
     grid-template-columns: repeat(6, 46px);
@@ -115,19 +142,33 @@ h1{ margin: 0; font-size: 22px; }
   .cell{ width:46px; height:46px; border-width:3px; }
 }
 
-/* 石の見やすさ：白にも輪郭、黒は深い黒 */
-.cell[data-mark="1"]{ background: var(--black); border-color: #000; }
-.cell[data-mark="2"]{ background: var(--white); border-color: #000; }
+/* 黒石 */
+.cell[data-mark="1"]{
+  background: var(--black);
+  border-color: #000;
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,.10),
+    inset 0 -3px 5px rgba(0,0,0,.35);
+}
 
-/* 仮置き（pending）：少し色を変えて「まだ確定じゃない」感 */
+/* ★白石：盤の白と同化しないように“薄グレー＋内影” */
+.cell[data-mark="2"]{
+  background: var(--white-stone);
+  border-color: #000;
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,.85),
+    inset 0 -4px 6px rgba(0,0,0,.18);
+}
+
+/* 仮置き（pending） */
 .cell.pending{
-  outline: 5px solid rgba(255, 180, 0, .55);
+  outline: 5px solid rgba(255, 180, 0, .65);
   outline-offset: 2px;
 }
 
 /* 勝利ライン（win） */
 .cell.win{
-  outline: 6px solid rgba(0, 160, 255, .65);
+  outline: 6px solid rgba(0, 160, 255, .70);
   outline-offset: 2px;
 }
 
@@ -178,6 +219,11 @@ button{
 button.primary{
   background: #ead8b8;
   border-color: #cdbda8;
+}
+
+button.selected{
+  outline: 4px solid rgba(120, 90, 60, .35);
+  outline-offset: 2px;
 }
 
 .roomBox{ margin-top: 10px; }
