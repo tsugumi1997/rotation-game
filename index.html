@@ -1,3 +1,4 @@
+<!-- index.html（全置換） -->
 <!doctype html>
 <html lang="ja">
 <head>
@@ -37,14 +38,12 @@
 
   <main>
     <div class="boardWrap">
-      <!-- 盤は app.js がここに生成します -->
       <div id="board" class="board"></div>
     </div>
 
     <section class="panel">
       <div class="panelTitle">回転 小盤</div>
       <div class="quad">
-        <!-- 左上=0, 右上=1, 左下=2, 右下=3 -->
         <button class="qbtn" data-q="0">左上</button>
         <button class="qbtn" data-q="1">右上</button>
         <button class="qbtn" data-q="2">左下</button>
@@ -53,7 +52,6 @@
 
       <div class="panelTitle">方向</div>
       <div class="dir">
-        <!-- ★重要：app.js は data-d を Number で読む想定 -->
         <button class="dbtn" data-d="-1">左</button>
         <button class="dbtn" data-d="1">右</button>
       </div>
@@ -80,12 +78,12 @@
       オンライン対戦：同じRoomで同期します（例：?room=123456）
     </footer>
 
-    <!-- Firebase (compat / CDN) ※ app.js が firebase を参照する想定 -->
+    <!-- Firebase (compat / CDN) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
     <!-- Main -->
-    <script src="./app.js?v=2"></script>
+    <script src="./app.js"></script>
   </main>
 </body>
 </html>
