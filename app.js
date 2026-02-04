@@ -1,918 +1,722 @@
-/* app.js（全置換：盤が崩れない / 3×3独立 / 回転アニメ / 置き直しOK / AIゆっくり / オンライン同期） */
-
+/* app.js（全置換：オンライン保持 / 盤2×2 / 小盤だけ回転 / 置き直しOK / AIゆっくり） */
 (() => {
   const EMPTY = 0, BLACK = 1, WHITE = 2;
 
+  // ===== Firebase 設定（あなたの値） =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuV-7S_1LuPiTKVdkFjyOvtKUaN136rPE",
+    authDomain: "pentago-online.firebaseapp.com",
+    databaseURL: "https://pentago-online-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "pentago-online",
+    storageBucket: "pentago-online.firebasestorage.app",
+    messagingSenderId: "205747321779",
+    appId: "1:205747321779:web:a553a1a01d2bfec98da9c6",
+    measurementId: "G-F1BSS16ZQ9"
+  };
+
   // ===== DOM =====
-  const elBoard = document.getElementById("board");
-  const elTurnText = document.getElementById("turnText");
-  const elPhaseText = document.getElementById("phaseText");
-  const elEvalText = document.getElementById("evalText");
-  const elBwText = document.getElementById("bwText");
-  const elRoomLabel = document.getElementById("roomLabel");
-  const elSeatLabel = document.getElementById("seatLabel");
-  const elStatusText = document.getElementById("statusText");
+  const $ = (id) => document.getElementById(id);
 
-  const elAiWhite = document.getElementById("aiWhite");
+  const elBoard = $("board");
+  const elTurn = $("turnText");
+  const elPhase = $("phaseText");
+  const elEval = $("evalText");
+  const elBW = $("bwText");
+  const elRoomLabel = $("roomLabel");
+  const elSeatLabel = $("seatLabel");
+  const elStatus = $("statusText");
 
-  const elCommit = document.getElementById("commit");
-  const elUndo = document.getElementById("undo");
-  const elReset = document.getElementById("reset");
+  const elAiWhite = $("aiWhite");
 
-  const elRoomCode = document.getElementById("roomCode");
-  const elApplyRoom = document.getElementById("applyRoom");
-  const elCopyLink = document.getElementById("copyLink");
+  const elCommit = $("commit");
+  const elUndo = $("undo");
+  const elReset = $("reset");
 
-  const elPlayAsBlack = document.getElementById("playAsBlack");
-  const elPlayAsWhite = document.getElementById("playAsWhite");
+  const elPlayAsBlack = $("playAsBlack");
+  const elPlayAsWhite = $("playAsWhite");
 
-  const elJoinBlack = document.getElementById("joinBlack");
-  const elJoinWhite = document.getElementById("joinWhite");
+  const elRoomCode = $("roomCode");
+  const elApplyRoom = $("applyRoom");
+  const elCopyLink = $("copyLink");
+  const elJoinBlack = $("joinBlack");
+  const elJoinWhite = $("joinWhite");
+  const elLeaveRoom = $("leaveRoom");
 
-  const qButtons = Array.from(document.querySelectorAll(".qbtn"));
-  const dButtons = Array.from(document.querySelectorAll(".dbtn"));
+  const qBtns = Array.from(document.querySelectorAll(".qbtn"));
+  const dBtns = Array.from(document.querySelectorAll(".dbtn"));
 
   // ===== State =====
-  let board = new Array(36).fill(EMPTY);
-  let turn = BLACK;              // 現在手番
-  let phase = "place";           // "place" or "rotate"
-  let pendingIndex = -1;         // 仮置き位置
-  let pendingColor = EMPTY;      // 仮置き色
-  let selQ = -1;                 // 回転小盤 0..3
-  let selD = 0;                  // -1(left) or +1(right)
+  let board = Array(36).fill(EMPTY);
+  let turn = BLACK;
+  let phase = "place"; // "place" or "rotate"
+
+  let pendingIndex = -1;
+  let pendingColor = EMPTY;
+
+  let selectedQuad = 0; // 0 TL,1 TR,2 BL,3 BR
+  let selectedDir = -1; // -1 left, +1 right
+
   let winCells = new Set();
-  let history = [];
-
-  // ローカル用の自分の色（オンライン時は seat に置き換え）
-  let localYou = BLACK;
-
-  // オンライン
-  let clientId = makeClientId();
-  let room = "";
-  let seat = "";                 // "B" or "W" (オンライン参加時)
-  let fb = { ok: false, db: null, roomRef: null, stateUnsub: null, seatsRef: null };
-  let applyingRemote = false;
-
-  // AI
-  let aiEnabled = false;
-  const AI_THINK_MS = 650;       // “ゆっくり”
-  const AI_ROTATE_MS = 350;
-
-  // 盤UI保持
-  let subBoards = [];            // 4つの subBoard div
-  let cellEls = [];              // 36個の cell div
   let lastPlaced = -1;
 
-  // ===== Boot =====
-  function boot() {
-    makeBoardUI();
-    bindEvents();
+  let animLock = false;
 
-    initFirebaseMaybe();
+  // local / online
+  let localSeat = "B"; // "B" or "W" (ローカル時の自分)
+  let online = false;
+  let room = "";
+  let seat = ""; // "B","W","" (オンライン参加状況)
 
-    const r = parseRoomFromURL();
-    if (r) {
-      if (elRoomCode) elRoomCode.value = r;
-      setRoom(r, false);
-    } else {
-      setHudRoom("-");
+  // Firebase
+  let db = null;
+  let roomRef = null;
+
+  const clientId = (() => {
+    const k = "rotation_game_client_id";
+    try {
+      const v = localStorage.getItem(k);
+      if (v) return v;
+      const nv = "c_" + Math.random().toString(16).slice(2) + Date.now().toString(16);
+      localStorage.setItem(k, nv);
+      return nv;
+    } catch {
+      return "c_" + Math.random().toString(16).slice(2);
     }
+  })();
 
-    resetGame(false);
-    render();
+  // UI refs
+  const subBoards = []; // 0..3
+  const cellEls = new Array(36).fill(null);
 
-    setStatus("仮置き：マスをタップ（置き直しOK）");
+  // ===== Helpers =====
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function setStatus(msg){ if (elStatus) elStatus.textContent = msg; }
+  function setRoomLabel(v){ if (elRoomLabel) elRoomLabel.textContent = v ? v : "—"; }
+  function setSeatLabel(v){ if (elSeatLabel) elSeatLabel.textContent = v ? v : "—"; }
+
+  function turnText(t){ return t === BLACK ? "黒の手番" : "白の手番"; }
+
+  function parseRoomFromURL(){
+    try {
+      const u = new URL(location.href);
+      const r = u.searchParams.get("room");
+      return r ? r.trim() : "";
+    } catch { return ""; }
   }
 
-  // ===== UI Build (重要：2×2のsubBoard) =====
-  function makeBoardUI() {
-    if (!elBoard) return;
+  function updateURLRoom(r){
+    try{
+      const u = new URL(location.href);
+      if (r) u.searchParams.set("room", r);
+      else u.searchParams.delete("room");
+      history.replaceState(null, "", u.toString());
+    } catch {}
+  }
 
+  function canActNow(){
+    if (!online) return true;
+    if (!seat) return false;
+    const my = seat === "B" ? BLACK : WHITE;
+    return my === turn;
+  }
+
+  function countBW(){
+    let b=0,w=0;
+    for (const v of board){ if (v===BLACK) b++; else if (v===WHITE) w++; }
+    return {b,w};
+  }
+
+  // ===== Build Board (2×2 of 3×3) =====
+  function quadLocalToGlobal(q, r, c){
+    const r0 = (q < 2) ? 0 : 3;
+    const c0 = (q % 2 === 0) ? 0 : 3;
+    return (r0 + r) * 6 + (c0 + c);
+  }
+
+  function quadIndices(q){
+    const idx = [];
+    const r0 = (q < 2) ? 0 : 3;
+    const c0 = (q % 2 === 0) ? 0 : 3;
+    for (let r=r0;r<r0+3;r++){
+      for (let c=c0;c<c0+3;c++){
+        idx.push(r*6+c);
+      }
+    }
+    return idx;
+  }
+
+  function buildBoardUI(){
     elBoard.innerHTML = "";
-    subBoards = [];
-    cellEls = [];
+    subBoards.length = 0;
 
-    for (let q = 0; q < 4; q++) {
+    for (let q=0;q<4;q++){
       const sb = document.createElement("div");
       sb.className = "subBoard";
       sb.dataset.q = String(q);
 
-      for (let k = 0; k < 9; k++) {
-        const i = quadLocalToIndex(q, k);
-        const d = document.createElement("div");
-        d.className = "cell";
-        d.dataset.i = String(i);
-        d.dataset.mark = "0";
-        d.addEventListener("click", () => onCellClick(i));
-        sb.appendChild(d);
-        cellEls[i] = d;
+      // 小盤タップでも選択できる（セル以外）
+      sb.addEventListener("click", (ev) => {
+        if (ev.target && ev.target.classList && ev.target.classList.contains("cell")) return;
+        selectQuad(q);
+      });
+
+      for (let r=0;r<3;r++){
+        for (let c=0;c<3;c++){
+          const i = quadLocalToGlobal(q, r, c);
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.dataset.i = String(i);
+          cell.dataset.mark = "0";
+          cell.addEventListener("click", (e) => {
+            e.stopPropagation();
+            onCellClick(i);
+          });
+          sb.appendChild(cell);
+          cellEls[i] = cell;
+        }
       }
 
-      subBoards[q] = sb;
       elBoard.appendChild(sb);
+      subBoards[q] = sb;
     }
   }
 
-  // ===== Events =====
-  function bindEvents() {
-    // 回転小盤
-    qButtons.forEach(b => b.addEventListener("click", () => {
-      const q = Number(b.dataset.q);
-      selectQuad(q);
-    }));
-
-    // 方向
-    dButtons.forEach(b => b.addEventListener("click", () => {
-      const d = Number(b.dataset.d);
-      selectDir(d);
-    }));
-
-    elCommit.addEventListener("click", commitRotate);
-
-    elUndo.addEventListener("click", undo);
-    elReset.addEventListener("click", () => resetGame(true));
-
-    elAiWhite.addEventListener("change", () => {
-      aiEnabled = !!elAiWhite.checked;
-      if (aiEnabled) setStatus("AI（白）ON：あなたは黒でプレイ推奨（ローカル）");
-      else setStatus("AI OFF");
-      maybeAIMove();
-    });
-
-    // ローカル先後
-    elPlayAsBlack.addEventListener("click", () => {
-      localYou = BLACK;
-      seat = "";
-      setHudSeat("B");
-      resetGame(true);
-      setStatus("ローカル：あなたは先攻（黒）");
-      maybeAIMove();
-    });
-
-    elPlayAsWhite.addEventListener("click", () => {
-      localYou = WHITE;
-      seat = "";
-      setHudSeat("W");
-      resetGame(true);
-      setStatus("ローカル：あなたは後攻（白）");
-      maybeAIMove();
-    });
-
-    // Room
-    elApplyRoom.addEventListener("click", () => {
-      const r = (elRoomCode.value || "").trim();
-      if (!r) return;
-      setRoom(r, true);
-    });
-
-    elCopyLink.addEventListener("click", () => {
-      const url = buildShareURL(room || (elRoomCode?.value || "").trim());
-      copyText(url);
-      setStatus("共有URLをコピーしました");
-    });
-
-    // オンライン参加
-    elJoinBlack.addEventListener("click", () => joinOnline("B"));
-    elJoinWhite.addEventListener("click", () => joinOnline("W"));
-
-    // iPhoneで原因特定しやすいようにHUDへ
-    window.addEventListener("error", (ev) => {
-      try {
-        const msg = ev && ev.message ? ev.message : "Unknown error";
-        setStatus("JSエラー: " + msg);
-      } catch {}
-    });
+  // ===== Rendering =====
+  function renderSelections(){
+    qBtns.forEach(b => b.classList.toggle("selected", Number(b.dataset.q) === selectedQuad));
+    dBtns.forEach(b => b.classList.toggle("selected", Number(b.dataset.d) === selectedDir));
+    subBoards.forEach((sb, idx) => sb.classList.toggle("selected", idx === selectedQuad));
   }
 
-  // ===== Core Click =====
-  function onCellClick(i) {
-    if (isGameOver()) return;
+  function render(){
+    const {b,w} = countBW();
+    elBW.textContent = `${b} / ${w}`;
+    elPhase.textContent = phase;
+    elTurn.textContent = turnText(turn);
+    elEval.textContent = String(evaluate(board, turn));
+    renderSelections();
+
+    // 表示用（pendingを上書き）
+    const marks = board.slice();
+    if (pendingIndex >= 0 && pendingColor !== EMPTY) marks[pendingIndex] = pendingColor;
+
+    for (let i=0;i<36;i++){
+      const c = cellEls[i];
+      if (!c) continue;
+      c.dataset.mark = String(marks[i]);
+      c.classList.toggle("pending", i === pendingIndex && pendingColor !== EMPTY);
+      c.classList.toggle("win", winCells.has(i));
+      c.classList.toggle("justPlaced", i === lastPlaced);
+    }
+
+    // justPlacedはすぐ解除
+    if (lastPlaced >= 0){
+      const keep = lastPlaced;
+      setTimeout(() => {
+        const c = cellEls[keep];
+        if (c) c.classList.remove("justPlaced");
+      }, 220);
+    }
+
+    // ボタン可否
+    elCommit.disabled = (!canActNow() || animLock || phase !== "rotate" || pendingIndex < 0 || ![ -1, 1 ].includes(selectedDir));
+    elUndo.disabled = online; // オンラインは簡略化のためUndo無効
+  }
+
+  // ===== Game Logic =====
+  function onCellClick(i){
     if (!canActNow()) return;
+    if (animLock) return;
+    if (winCells.size) return;
 
-    // placeフェーズのみ
-    if (phase !== "place") {
-      setStatus("いまは回転を選んで「回転して確定」してください");
-      return;
-    }
+    // place中のみ配置（仮置きは置き直しOK）
+    if (phase !== "place") return;
 
-    // 確定石があるマスは置けない
     if (board[i] !== EMPTY) return;
 
-    // 仮置きを置き直しOK
     pendingIndex = i;
     pendingColor = turn;
     lastPlaced = i;
+
     phase = "rotate";
     winCells.clear();
 
     render();
     syncIfOnline();
-    setStatus("回転する小盤と方向を選んで「回転して確定」");
+    setStatus("回転する小盤と方向を選んで『回転して確定』");
   }
 
-  function selectQuad(q) {
+  function selectQuad(q){
+    if (animLock) return;
+    selectedQuad = q;
+    render();
+    syncIfOnline();
+  }
+
+  function selectDir(d){
+    if (animLock) return;
+    selectedDir = d;
+    render();
+    syncIfOnline();
+  }
+
+  function rotateInPlace(bd, q, dir){
+    const idx = quadIndices(q);
+    const m = idx.map(i => bd[i]);
+    const out = m.slice();
+
+    for (let r=0;r<3;r++){
+      for (let c=0;c<3;c++){
+        const src = r*3+c;
+        let rr, cc;
+        if (dir === 1){ rr = c; cc = 2-r; }      // CW
+        else { rr = 2-c; cc = r; }               // CCW
+        const dst = rr*3+cc;
+        out[dst] = m[src];
+      }
+    }
+    for (let k=0;k<9;k++) bd[idx[k]] = out[k];
+  }
+
+  async function animateQuadRotation(q, dir){
+    const sb = subBoards[q];
+    if (!sb) return;
+    sb.classList.remove("rotCW","rotCCW");
+    void sb.offsetWidth;
+    sb.classList.add(dir === 1 ? "rotCW" : "rotCCW");
+    await sleep(520);
+    sb.classList.remove("rotCW","rotCCW");
+  }
+
+  async function commitMove(){
     if (!canActNow()) return;
-    selQ = q;
-    qButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.q) === q));
-    subBoards.forEach((sb, idx) => sb.classList.toggle("selected", idx === q));
-    renderStatusHint();
-  }
+    if (animLock) return;
+    if (winCells.size) return;
 
-  function selectDir(d) {
-    if (!canActNow()) return;
-    selD = d;
-    dButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.d) === d));
-    renderStatusHint();
-  }
+    if (phase !== "rotate") { setStatus("先にマスをタップして仮置きしてください"); return; }
+    if (pendingIndex < 0) { setStatus("仮置きがありません"); phase="place"; render(); return; }
+    if (![ -1, 1 ].includes(selectedDir)) { setStatus("方向（左/右）を選んでください"); return; }
 
-  function renderStatusHint() {
-    if (phase !== "rotate") return;
-    if (selQ < 0 || selD === 0) {
-      setStatus("回転小盤と方向を選んでください");
-    } else {
-      setStatus("OK：『回転して確定』を押してください");
-    }
-  }
+    animLock = true;
+    render();
+    syncIfOnline();
 
-  // ===== Commit (rotate+fix) =====
-  async function commitRotate() {
-    if (isGameOver()) return;
-    if (!canActNow()) return;
-
-    if (phase !== "rotate") {
-      setStatus("先にマスをタップして仮置きしてください");
-      return;
-    }
-    if (pendingIndex < 0) {
-      setStatus("仮置きがありません（マスをタップ）");
-      phase = "place";
-      render();
-      return;
-    }
-    if (selQ < 0 || (selD !== -1 && selD !== 1)) {
-      setStatus("回転小盤と方向を選んでください");
-      return;
-    }
-
-    // 履歴に保存（Undo用）
-    history.push(snapshot());
-
-    // 1) 仮置きを確定配置（boardへ）
+    // 1) 仮置きを確定
     board[pendingIndex] = pendingColor;
+    render();
+    syncIfOnline();
+    await sleep(260);
 
-    // 2) 回転アニメ→回転を反映
-    await animateAndApplyRotation(selQ, selD);
+    // 2) アニメ → 実回転
+    await animateQuadRotation(selectedQuad, selectedDir);
+    rotateInPlace(board, selectedQuad, selectedDir);
 
-    // 3) 勝敗判定
-    winCells = getWinCells(board);
-    if (winCells.size > 0) {
-      render();
-      setStatus((turn === BLACK ? "黒" : "白") + "の勝ち！");
-      syncIfOnline();
-      return;
-    }
+    // 3) 勝利判定
+    winCells = findWinCells(board);
 
-    // 次手番へ
+    // 4) 次へ
     pendingIndex = -1;
     pendingColor = EMPTY;
     phase = "place";
-    selQ = -1;
-    selD = 0;
-    clearSelections();
-
     turn = (turn === BLACK) ? WHITE : BLACK;
 
+    animLock = false;
     render();
     syncIfOnline();
-    setStatus("仮置き：マスをタップ（置き直しOK）");
 
-    maybeAIMove();
-  }
-
-  function clearSelections() {
-    qButtons.forEach(b => b.classList.remove("selected"));
-    dButtons.forEach(b => b.classList.remove("selected"));
-    subBoards.forEach(sb => sb.classList.remove("selected"));
-  }
-
-  // ===== Rotation =====
-  function applyRotationToBoard(q, dir) {
-    // q: 0..3, dir: -1 (left/CCW) or +1 (right/CW)
-    const idxs = quadIndices(q); // 9 indices in reading order
-    const vals = idxs.map(i => board[i]);
-
-    // rotate 3x3
-    // vals indices: [0 1 2 / 3 4 5 / 6 7 8]
-    const rot = new Array(9);
-    if (dir === 1) { // CW
-      rot[0]=vals[6]; rot[1]=vals[3]; rot[2]=vals[0];
-      rot[3]=vals[7]; rot[4]=vals[4]; rot[5]=vals[1];
-      rot[6]=vals[8]; rot[7]=vals[5]; rot[8]=vals[2];
-    } else { // CCW
-      rot[0]=vals[2]; rot[1]=vals[5]; rot[2]=vals[8];
-      rot[3]=vals[1]; rot[4]=vals[4]; rot[5]=vals[7];
-      rot[6]=vals[0]; rot[7]=vals[3]; rot[8]=vals[6];
-    }
-
-    for (let k=0;k<9;k++) board[idxs[k]] = rot[k];
-  }
-
-  async function animateAndApplyRotation(q, dir) {
-    const sb = subBoards[q];
-    if (!sb) {
-      applyRotationToBoard(q, dir);
+    if (winCells.size) {
+      setStatus("ゲーム終了：勝利ライン！");
       return;
     }
 
-    // アニメ用クラス付与
-    sb.classList.remove("rotL","rotR");
-    // force reflow
-    void sb.offsetWidth;
-
-    if (dir === 1) sb.classList.add("rotR");
-    else sb.classList.add("rotL");
-
-    // アニメ時間待ち
-    await sleep(AI_ROTATE_MS);
-
-    // 回転を反映（配列）
-    applyRotationToBoard(q, dir);
-
-    // クラス戻して正しい向きで再描画
-    sb.classList.remove("rotL","rotR");
-    render();
+    setStatus(canActNow() ? "仮置き：マスをタップ（置き直しOK）" : "相手の操作待ち");
+    maybeAiMove();
   }
 
-  // ===== Undo/Reset =====
-  function undo() {
-    if (!history.length) {
-      setStatus("Undoできる履歴がありません");
-      return;
-    }
-    const s = history.pop();
-    restore(s);
-    setStatus("Undoしました");
-    render();
-    syncIfOnline();
-  }
-
-  function resetGame(announce) {
-    board = new Array(36).fill(EMPTY);
+  function resetLocal(){
+    board = Array(36).fill(EMPTY);
     turn = BLACK;
     phase = "place";
     pendingIndex = -1;
     pendingColor = EMPTY;
-    selQ = -1;
-    selD = 0;
+    selectedQuad = 0;
+    selectedDir = -1;
     winCells = new Set();
-    history = [];
     lastPlaced = -1;
-    clearSelections();
-
-    // 表示上の自分の色
-    if (!room) {
-      setHudSeat(localYou === BLACK ? "B" : "W");
-    }
-
-    if (announce) setStatus("リセットしました");
-    syncIfOnline();
+    animLock = false;
+    render();
   }
 
-  // ===== Render =====
-  function render() {
-    // HUD
-    elTurnText.textContent = (turn === BLACK ? "黒の手番" : "白の手番");
-    elPhaseText.textContent = phase;
-    elEvalText.textContent = String(evaluate(board));
-    const bw = countBW(board);
-    elBwText.textContent = `${bw.b} / ${bw.w}`;
+  // ===== Win =====
+  function findWinCells(bd){
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    const res = new Set();
 
-    // 盤
-    for (let i=0;i<36;i++) {
-      const d = cellEls[i];
-      if (!d) continue;
+    const inBounds = (r,c) => r>=0 && r<6 && c>=0 && c<6;
 
-      const v = board[i];
-      d.dataset.mark = String(v);
-
-      d.classList.remove("pending","win","justPlaced");
-
-      if (i === pendingIndex && phase === "rotate") d.classList.add("pending");
-      if (winCells.has(i)) d.classList.add("win");
-      if (i === lastPlaced) d.classList.add("justPlaced");
-    }
-
-    // justPlacedはすぐ戻す（アニメ用）
-    if (lastPlaced >= 0) {
-      const keep = lastPlaced;
-      setTimeout(() => {
-        const d = cellEls[keep];
-        if (d) d.classList.remove("justPlaced");
-      }, 200);
-    }
-
-    // 回転フェーズの誘導
-    if (phase === "rotate") renderStatusHint();
-  }
-
-  function setStatus(s) {
-    if (elStatusText) elStatusText.textContent = s;
-  }
-
-  function setHudRoom(s) {
-    if (elRoomLabel) elRoomLabel.textContent = s;
-  }
-
-  function setHudSeat(s) {
-    if (elSeatLabel) elSeatLabel.textContent = s;
-  }
-
-  // ===== Helpers =====
-  function countBW(bd) {
-    let b=0,w=0;
-    for (const v of bd) { if (v===BLACK) b++; else if (v===WHITE) w++; }
-    return {b,w};
-  }
-
-  function isGameOver() {
-    return winCells && winCells.size > 0;
-  }
-
-  function canActNow() {
-    // オンラインなら seat に従う
-    if (room && seat) {
-      const myColor = (seat === "B") ? BLACK : WHITE;
-      if (turn !== myColor) return false;
-    }
-    return true;
-  }
-
-  function snapshot() {
-    return {
-      board: board.slice(),
-      turn,
-      phase,
-      pendingIndex,
-      pendingColor,
-      selQ,
-      selD,
-      winCells: Array.from(winCells),
-      localYou,
-      seat
-    };
-  }
-
-  function restore(s) {
-    board = s.board.slice();
-    turn = s.turn;
-    phase = s.phase;
-    pendingIndex = s.pendingIndex;
-    pendingColor = s.pendingColor;
-    selQ = s.selQ;
-    selD = s.selD;
-    winCells = new Set(s.winCells || []);
-    localYou = s.localYou ?? localYou;
-    seat = s.seat ?? seat;
-
-    clearSelections();
-    if (selQ >= 0) {
-      qButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.q) === selQ));
-      subBoards.forEach((sb, idx) => sb.classList.toggle("selected", idx === selQ));
-    }
-    if (selD !== 0) {
-      dButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.d) === selD));
-    }
-  }
-
-  // ===== Win check (5 in a row on 6x6) =====
-  function getWinCells(bd) {
-    const lines = [];
-    const addLine = (cells) => lines.push(cells);
-
-    // horizontal
     for (let r=0;r<6;r++){
-      for (let c=0;c<=1;c++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push(r*6+(c+k));
-        addLine(cells);
-      }
-    }
-    // vertical
-    for (let c=0;c<6;c++){
-      for (let r=0;r<=1;r++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push((r+k)*6+c);
-        addLine(cells);
-      }
-    }
-    // diag down-right
-    for (let r=0;r<=1;r++){
-      for (let c=0;c<=1;c++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push((r+k)*6+(c+k));
-        addLine(cells);
-      }
-    }
-    // diag down-left
-    for (let r=0;r<=1;r++){
-      for (let c=4;c<=5;c++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push((r+k)*6+(c-k));
-        addLine(cells);
-      }
-    }
+      for (let c=0;c<6;c++){
+        const v = bd[r*6+c];
+        if (v===EMPTY) continue;
 
-    for (const cells of lines) {
-      const v0 = bd[cells[0]];
-      if (v0 === EMPTY) continue;
-      let ok = true;
-      for (let i=1;i<cells.length;i++){
-        if (bd[cells[i]] !== v0) { ok=false; break; }
-      }
-      if (ok) return new Set(cells);
-    }
-    return new Set();
-  }
-
-  // ===== Evaluation (軽い指標：人間っぽい雰囲気用) =====
-  // +なら黒有利、-なら白有利
-  function evaluate(bd) {
-    // 5ライン候補に対して「連の強さ」だけ雑にスコア
-    const scoreLine = (cells) => {
-      let b=0,w=0;
-      for (const i of cells){
-        if (bd[i]===BLACK) b++;
-        else if (bd[i]===WHITE) w++;
-      }
-      if (b>0 && w>0) return 0; // 混在は価値低
-      if (b===0 && w===0) return 0;
-      // 1,2,3,4の強さ
-      const val = [0, 1, 4, 12, 40, 200];
-      if (b>0) return val[b];
-      return -val[w];
-    };
-
-    let s = 0;
-
-    // 全5ライン
-    // horizontal
-    for (let r=0;r<6;r++){
-      for (let c=0;c<=1;c++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push(r*6+(c+k));
-        s += scoreLine(cells);
-      }
-    }
-    // vertical
-    for (let c=0;c<6;c++){
-      for (let r=0;r<=1;r++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push((r+k)*6+c);
-        s += scoreLine(cells);
-      }
-    }
-    // diag down-right
-    for (let r=0;r<=1;r++){
-      for (let c=0;c<=1;c++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push((r+k)*6+(c+k));
-        s += scoreLine(cells);
-      }
-    }
-    // diag down-left
-    for (let r=0;r<=1;r++){
-      for (let c=4;c<=5;c++){
-        const cells=[];
-        for (let k=0;k<5;k++) cells.push((r+k)*6+(c-k));
-        s += scoreLine(cells);
-      }
-    }
-
-    return Math.max(-999, Math.min(999, s));
-  }
-
-  // ===== AI (白) =====
-  function maybeAIMove() {
-    if (!aiEnabled) return;
-
-    // オンライン中は AI を推奨しない（混乱防止）
-    if (room) return;
-
-    // AIは白担当
-    if (turn !== WHITE) return;
-
-    // ローカルで自分が白を選んでるならAIは動かない
-    if (localYou === WHITE) return;
-
-    // すでに勝敗
-    if (isGameOver()) return;
-
-    // フェーズがplaceのときだけAI開始
-    if (phase !== "place") return;
-
-    setStatus("AI考え中…");
-
-    setTimeout(async () => {
-      // 1) 置く
-      const move = aiChooseMove();
-      if (!move) { setStatus("AI: 手が見つかりません"); return; }
-
-      pendingIndex = move.place;
-      pendingColor = WHITE;
-      lastPlaced = move.place;
-      phase = "rotate";
-
-      render();
-      await sleep(AI_THINK_MS);
-
-      // 2) 回転選択
-      selQ = move.q;
-      selD = move.d;
-      // UIハイライト反映
-      clearSelections();
-      qButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.q) === selQ));
-      dButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.d) === selD));
-      subBoards.forEach((sb, idx) => sb.classList.toggle("selected", idx === selQ));
-      renderStatusHint();
-
-      await sleep(AI_THINK_MS);
-
-      // 3) 確定
-      await commitRotate();
-
-    }, AI_THINK_MS);
-  }
-
-  function aiChooseMove() {
-    // かなり軽量：全部試して一番evalが良い手（白はevalを最小化）
-    let best = null;
-    let bestScore = Infinity;
-
-    const empties = [];
-    for (let i=0;i<36;i++) if (board[i]===EMPTY) empties.push(i);
-
-    // 少し“人間っぽく”：中央寄り優先の微バイアス
-    const centerBonus = (i) => {
-      const r = Math.floor(i/6), c = i%6;
-      const dr = Math.abs(r-2.5), dc = Math.abs(c-2.5);
-      return (dr+dc);
-    };
-
-    for (const place of empties) {
-      // 仮に置く
-      const bd1 = board.slice();
-      bd1[place] = WHITE;
-
-      for (let q=0;q<4;q++){
-        for (const d of [-1,1]){
-          const bd2 = bd1.slice();
-          rotateOn(bd2, q, d);
-
-          // 勝てるなら即
-          if (getWinCells(bd2).size > 0) {
-            return { place, q, d };
+        for (const [dr,dc] of dirs){
+          const cells = [];
+          let rr=r, cc=c;
+          while (inBounds(rr,cc) && bd[rr*6+cc]===v){
+            cells.push(rr*6+cc);
+            rr+=dr; cc+=dc;
           }
-
-          let sc = evaluate(bd2); // +黒有利 / -白有利 なので、白は小さいほど良い
-          sc += centerBonus(place) * 0.08; // わずかに中心寄り
-          if (sc < bestScore) {
-            bestScore = sc;
-            best = { place, q, d };
+          if (cells.length>=5){
+            for (let i=0;i<5;i++) res.add(cells[i]);
+            return res;
           }
         }
       }
     }
-    return best;
+    return res;
   }
 
-  function rotateOn(bd, q, dir) {
-    const idxs = quadIndices(q);
-    const vals = idxs.map(i => bd[i]);
-    const rot = new Array(9);
-    if (dir === 1) {
-      rot[0]=vals[6]; rot[1]=vals[3]; rot[2]=vals[0];
-      rot[3]=vals[7]; rot[4]=vals[4]; rot[5]=vals[1];
-      rot[6]=vals[8]; rot[7]=vals[5]; rot[8]=vals[2];
-    } else {
-      rot[0]=vals[2]; rot[1]=vals[5]; rot[2]=vals[8];
-      rot[3]=vals[1]; rot[4]=vals[4]; rot[5]=vals[7];
-      rot[6]=vals[0]; rot[7]=vals[3]; rot[8]=vals[6];
-    }
-    for (let k=0;k<9;k++) bd[idxs[k]] = rot[k];
+  // ===== Eval（簡易） =====
+  function allFiveLines(){
+    const lines=[];
+    for (let r=0;r<6;r++) for (let c=0;c<=1;c++) lines.push([0,1,2,3,4].map(k=>r*6+(c+k)));
+    for (let c=0;c<6;c++) for (let r=0;r<=1;r++) lines.push([0,1,2,3,4].map(k=>(r+k)*6+c));
+    for (let r=0;r<=1;r++) for (let c=0;c<=1;c++) lines.push([0,1,2,3,4].map(k=>(r+k)*6+(c+k)));
+    for (let r=0;r<=1;r++) for (let c=4;c<=5;c++) lines.push([0,1,2,3,4].map(k=>(r+k)*6+(c-k)));
+    return lines;
   }
 
-  // ===== Mapping =====
-  function quadIndices(q) {
-    // q=0 TL, 1 TR, 2 BL, 3 BR
-    const baseR = (q < 2) ? 0 : 3;
-    const baseC = (q % 2 === 0) ? 0 : 3;
-    const out = [];
-    for (let r=0;r<3;r++){
-      for (let c=0;c<3;c++){
-        out.push((baseR+r)*6 + (baseC+c));
+  function evaluate(bd, perspectiveTurn){
+    const me = perspectiveTurn;
+    const op = me === BLACK ? WHITE : BLACK;
+    const lines = allFiveLines();
+
+    const scoreSide = (color) => {
+      let s=0;
+      const centers=[14,15,20,21];
+      for (const i of centers) if (bd[i]===color) s+=2;
+
+      for (const line of lines){
+        let mine=0, opp=0;
+        for (const i of line){
+          if (bd[i]===color) mine++;
+          else if (bd[i]!==EMPTY) opp++;
+        }
+        if (opp===0){
+          if (mine===1) s+=1;
+          else if (mine===2) s+=3;
+          else if (mine===3) s+=7;
+          else if (mine===4) s+=18;
+          else if (mine>=5) s+=999;
+        }
+      }
+      return s;
+    };
+    return scoreSide(me) - scoreSide(op);
+  }
+
+  // ===== AI（ローカルのみ / 白） =====
+  async function maybeAiMove(){
+    if (online) return;                 // オンラインではAI動かさない
+    if (!elAiWhite.checked) return;     // AI OFF
+    if (winCells.size) return;
+    if (animLock) return;
+    if (turn !== WHITE) return;         // AIは白固定
+    if (localSeat === "W") return;      // 自分が白を選んでるならAIは止める
+
+    animLock = true;
+    setStatus("AI思考中…");
+    render();
+    await sleep(850);
+
+    // AI手：簡単探索
+    const mv = pickAiMove(board.slice(), WHITE);
+    if (!mv){ animLock=false; render(); return; }
+
+    // 仮置き→ゆっくり見せる
+    pendingIndex = mv.place;
+    pendingColor = WHITE;
+    lastPlaced = mv.place;
+    phase = "rotate";
+    selectedQuad = mv.quad;
+    selectedDir = mv.dir;
+    render();
+    await sleep(620);
+
+    animLock = false;
+    await commitMove();
+  }
+
+  function pickAiMove(bd, aiColor){
+    const empties=[];
+    for (let i=0;i<36;i++) if (bd[i]===EMPTY) empties.push(i);
+    if (!empties.length) return null;
+
+    let bestScore = -1e18;
+    let best=[];
+
+    for (const p of empties){
+      for (let q=0;q<4;q++){
+        for (const d of [-1,1]){
+          const sim = bd.slice();
+          sim[p]=aiColor;
+          rotateInPlace(sim, q, d);
+
+          const win = findWinCells(sim);
+          let sc = 0;
+
+          if (win.size>=5) sc = 1e9;
+          else {
+            sc = evaluate(sim, aiColor);
+            sc += (Math.random()-0.5)*2.0; // 人間っぽい揺らぎ
+          }
+
+          if (sc > bestScore + 1e-9){
+            bestScore = sc;
+            best = [{place:p, quad:q, dir:d}];
+          } else if (Math.abs(sc-bestScore) < 2.0){
+            best.push({place:p, quad:q, dir:d});
+          }
+        }
       }
     }
-    return out;
+    return best[Math.floor(Math.random()*best.length)];
   }
 
-  function quadLocalToIndex(q, k) {
-    // k: 0..8 reading order inside 3x3
-    const baseR = (q < 2) ? 0 : 3;
-    const baseC = (q % 2 === 0) ? 0 : 3;
-    const r = Math.floor(k/3);
-    const c = k % 3;
-    return (baseR+r)*6 + (baseC+c);
-  }
-
-  // ===== Online (Firebase) =====
-  function initFirebaseMaybe() {
-    // firebase が無い環境でも動くようにガード
-    if (!window.firebase || !firebase.initializeApp) {
-      fb.ok = false;
-      return;
-    }
-
-    try {
-      // あなたの設定（提示された値）
-      const firebaseConfig = {
-        apiKey: "AIzaSyBuV-7S_1LuPiTKVdkFjyOvtKUaN136rPE",
-        authDomain: "pentago-online.firebaseapp.com",
-        databaseURL: "https://pentago-online-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "pentago-online",
-        storageBucket: "pentago-online.firebasestorage.app",
-        messagingSenderId: "205747321779",
-        appId: "1:205747321779:web:a553a1a01d2bfec98da9c6",
-        measurementId: "G-F1BSS16ZQ9"
-      };
-
-      firebase.initializeApp(firebaseConfig);
-      fb.db = firebase.database();
-      fb.ok = true;
-    } catch (e) {
-      fb.ok = false;
-      setStatus("Firebase初期化に失敗（ローカルはOK）");
+  // ===== Firebase Online =====
+  function initFirebase(){
+    try{
+      if (!window.firebase || !firebase.initializeApp) return false;
+      if (!firebase.apps || firebase.apps.length===0) firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  function setRoom(r, updateURL) {
-    room = r;
-    setHudRoom(room);
-    if (updateURL) {
-      const url = buildShareURL(room);
-      historyReplace(url);
-    }
+  function startRoom(r){
+    room = r.trim();
+    setRoomLabel(room);
+    if (elRoomCode) elRoomCode.value = room;
+    updateURLRoom(room);
 
-    // オンライン監視
-    if (fb.ok) {
-      watchRoomState();
-      watchSeats();
-    }
-  }
+    if (!db) return;
 
-  function watchRoomState() {
-    if (!fb.ok || !room) return;
-    if (fb.roomRef) fb.roomRef.off();
+    online = true;
+    roomRef = db.ref(`rooms/${room}`);
 
-    fb.roomRef = fb.db.ref(`rooms/${room}/state`);
-    fb.roomRef.on("value", (snap) => {
+    // state listener
+    roomRef.child("state").on("value", (snap) => {
       const v = snap.val();
       if (!v) return;
 
-      // 自分が書いた直後の反映でバタつかないようガード
-      if (applyingRemote) return;
+      if (Array.isArray(v.board) && v.board.length===36) board = v.board.slice();
+      if (v.turn===BLACK || v.turn===WHITE) turn = v.turn;
+      if (typeof v.phase==="string") phase = v.phase;
+      if (typeof v.pendingIndex==="number") pendingIndex = v.pendingIndex;
+      if (v.pendingColor===EMPTY || v.pendingColor===BLACK || v.pendingColor===WHITE) pendingColor = v.pendingColor;
+      if (typeof v.selectedQuad==="number") selectedQuad = v.selectedQuad;
+      if (v.selectedDir===-1 || v.selectedDir===1) selectedDir = v.selectedDir;
+      if (Array.isArray(v.winCells)) winCells = new Set(v.winCells);
 
-      applyingRemote = true;
-      try {
-        if (v.board && Array.isArray(v.board) && v.board.length === 36) board = v.board.slice();
-        if (v.turn) turn = v.turn;
-        if (v.phase) phase = v.phase;
-        pendingIndex = (typeof v.pendingIndex === "number") ? v.pendingIndex : -1;
-        pendingColor = (typeof v.pendingColor === "number") ? v.pendingColor : EMPTY;
-        selQ = (typeof v.selQ === "number") ? v.selQ : -1;
-        selD = (typeof v.selD === "number") ? v.selD : 0;
-        winCells = new Set(Array.isArray(v.winCells) ? v.winCells : []);
-        lastPlaced = (typeof v.lastPlaced === "number") ? v.lastPlaced : -1;
+      render();
+      setStatus(canActNow() ? "あなたの手番です" : "相手の操作待ち");
+    });
 
-        clearSelections();
-        if (selQ >= 0) {
-          qButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.q) === selQ));
-          subBoards.forEach((sb, idx) => sb.classList.toggle("selected", idx === selQ));
-        }
-        if (selD !== 0) {
-          dButtons.forEach(b => b.classList.toggle("selected", Number(b.dataset.d) === selD));
-        }
+    // seats listener
+    roomRef.child("seats").on("value", (snap) => {
+      const seats = snap.val() || {};
+      let mySeat = "";
+      for (const k of Object.keys(seats)){
+        if (seats[k] === clientId) mySeat = k;
+      }
+      seat = mySeat; // "B" or "W" or ""
+      setSeatLabel(seat || "—");
+      render();
+    });
 
-        render();
-      } finally {
-        applyingRemote = false;
+    // 初期stateが無ければ作る
+    roomRef.child("state").get().then((snap) => {
+      if (!snap.exists()){
+        roomRef.child("state").set({
+          board: Array(36).fill(EMPTY),
+          turn: BLACK,
+          phase: "place",
+          pendingIndex: -1,
+          pendingColor: EMPTY,
+          selectedQuad: 0,
+          selectedDir: -1,
+          winCells: []
+        });
       }
     });
   }
 
-  function watchSeats() {
-    if (!fb.ok || !room) return;
-    fb.seatsRef = fb.db.ref(`rooms/${room}/seats`);
-  }
+  function syncIfOnline(){
+    if (!online || !roomRef) return;
+    // seatが無い（観戦）なら書き込まない
+    if (!seat) return;
 
-  function joinOnline(want) {
-    if (!fb.ok) { setStatus("Firebase未設定（ローカルのみ）"); return; }
-    const r = (room || (elRoomCode?.value || "").trim());
-    if (!r) { setStatus("room番号を入れてください"); return; }
-    if (!room) setRoom(r, true);
-
-    const ref = fb.db.ref(`rooms/${room}/seats/${clientId}`);
-    ref.set(want).then(() => {
-      seat = want; // "B" or "W"
-      setHudSeat(seat);
-      setStatus(`オンライン参加：あなたは ${seat}（${seat==="B"?"先攻/黒":"後攻/白"}）`);
-      // 初期stateが無ければ作る（先攻黒開始）
-      fb.db.ref(`rooms/${room}/state`).once("value").then((snap) => {
-        if (!snap.val()) syncIfOnline(true);
-      });
-    }).catch(() => {
-      setStatus("参加に失敗しました");
-    });
-  }
-
-  function syncIfOnline(forceInit = false) {
-    if (!fb.ok || !room) return;
-
-    const payload = {
-      board: board.slice(),
+    roomRef.child("state").set({
+      board,
       turn,
       phase,
       pendingIndex,
       pendingColor,
-      selQ,
-      selD,
-      winCells: Array.from(winCells),
-      lastPlaced
-    };
+      selectedQuad,
+      selectedDir,
+      winCells: Array.from(winCells)
+    });
+  }
 
-    if (forceInit) {
-      fb.db.ref(`rooms/${room}/state`).set(payload);
+  async function joinSeat(want){
+    if (!online || !roomRef) return;
+    const seatsRef = roomRef.child("seats");
+    const snap = await seatsRef.get();
+    const seats = snap.val() || {};
+
+    // 空いていれば取る（同端末の反対側は外す）
+    if (!seats[want] || seats[want] === clientId){
+      seats[want] = clientId;
+      const other = want === "B" ? "W" : "B";
+      if (seats[other] === clientId) delete seats[other];
+      await seatsRef.set(seats);
+      seat = want;
+      setSeatLabel(want);
+      setStatus(`参加：${want==="B" ? "先攻（黒）" : "後攻（白）"}`);
       return;
     }
-
-    // 参加済みseatがある場合のみ同期（誤爆防止）
-    if (seat) fb.db.ref(`rooms/${room}/state`).set(payload);
+    setStatus("その席は埋まっています");
   }
 
-  // ===== URL helpers =====
-  function parseRoomFromURL() {
-    try {
+  async function leaveRoom(){
+    if (!online || !roomRef) return;
+    try{
+      const seatsRef = roomRef.child("seats");
+      const snap = await seatsRef.get();
+      const seats = snap.val() || {};
+      for (const k of Object.keys(seats)){
+        if (seats[k] === clientId) delete seats[k];
+      }
+      await seatsRef.set(seats);
+    } catch {}
+    seat = "";
+    setSeatLabel("—");
+    setStatus("Roomを抜けました（観戦）");
+    render();
+  }
+
+  // ===== Events =====
+  function bind(){
+    // 小盤/方向
+    qBtns.forEach(b => b.addEventListener("click", () => selectQuad(Number(b.dataset.q))));
+    dBtns.forEach(b => b.addEventListener("click", () => selectDir(Number(b.dataset.d))));
+
+    // 操作
+    elCommit.addEventListener("click", () => commitMove());
+    elUndo.addEventListener("click", () => setStatus("Undoはオンライン互換のため無効です"));
+    elReset.addEventListener("click", () => {
+      if (online) { setStatus("オンライン中はResetは非推奨（Roomを抜けてから）"); return; }
+      resetLocal();
+      setStatus("リセットしました");
+      maybeAiMove();
+    });
+
+    // ローカル先後
+    elPlayAsBlack.addEventListener("click", () => {
+      if (online) { setStatus("オンライン中はローカル先後は無効です"); return; }
+      localSeat = "B";
+      elPlayAsBlack.classList.add("selected");
+      elPlayAsWhite.classList.remove("selected");
+      resetLocal();
+      setSeatLabel("B");
+      setStatus("ローカル：あなたは先攻（黒）");
+      maybeAiMove();
+    });
+
+    elPlayAsWhite.addEventListener("click", () => {
+      if (online) { setStatus("オンライン中はローカル先後は無効です"); return; }
+      localSeat = "W";
+      elPlayAsWhite.classList.add("selected");
+      elPlayAsBlack.classList.remove("selected");
+      resetLocal();
+      setSeatLabel("W");
+      setStatus("ローカル：あなたは後攻（白）");
+      maybeAiMove();
+    });
+
+    // AI
+    elAiWhite.addEventListener("change", () => {
+      if (online) {
+        setStatus("オンライン中はAIは動きません（ローカル専用）");
+        return;
+      }
+      setStatus(elAiWhite.checked ? "AI（白）ON" : "AI OFF");
+      maybeAiMove();
+    });
+
+    // Room
+    elApplyRoom.addEventListener("click", () => {
+      if (!db) { setStatus("Firebase初期化に失敗しています"); return; }
+      const r = (elRoomCode.value || "").trim();
+      if (!r) { setStatus("room番号を入れてください"); return; }
+      startRoom(r);
+      setStatus("Roomに接続しました。先攻/後攻で参加してください");
+    });
+
+    elCopyLink.addEventListener("click", async () => {
+      const r = (elRoomCode.value || room || "").trim();
       const u = new URL(location.href);
-      return u.searchParams.get("room") || "";
-    } catch { return ""; }
+      if (r) u.searchParams.set("room", r);
+      else u.searchParams.delete("room");
+      try{
+        await navigator.clipboard.writeText(u.toString());
+        setStatus("共有URLをコピーしました");
+      } catch {
+        setStatus("コピーに失敗：URLを手動で共有してください");
+      }
+    });
+
+    elJoinBlack.addEventListener("click", () => joinSeat("B"));
+    elJoinWhite.addEventListener("click", () => joinSeat("W"));
+    elLeaveRoom.addEventListener("click", () => leaveRoom());
   }
 
-  function buildShareURL(r) {
-    const base = location.origin + location.pathname;
-    if (!r) return base;
-    return `${base}?room=${encodeURIComponent(r)}`;
-  }
+  // ===== Boot =====
+  function boot(){
+    buildBoardUI();
 
-  function historyReplace(url) {
-    try { history.replaceState(null, "", url); } catch {}
-  }
+    // 初期：ローカル先攻
+    setSeatLabel("B");
+    elPlayAsBlack.classList.add("selected");
+    elPlayAsWhite.classList.remove("selected");
 
-  function copyText(t) {
-    try {
-      navigator.clipboard.writeText(t);
-    } catch {
-      // fallback
-      const ta = document.createElement("textarea");
-      ta.value = t;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
+    const ok = initFirebase();
+    if (!ok) setStatus("Firebase初期化に失敗（ローカルは動きます）");
+
+    const r = parseRoomFromURL();
+    if (r && ok){
+      if (elRoomCode) elRoomCode.value = r;
+      startRoom(r);
+      setStatus("Roomに接続しました。先攻/後攻で参加してください");
+    } else {
+      setRoomLabel("");
+      setStatus("仮置き：マスをタップ（置き直しOK）");
     }
+
+    bind();
+    render();
+    maybeAiMove();
   }
 
-  // ===== Misc =====
-  function makeClientId() {
-    // 端末に保存（同じ端末は同じID）
-    const k = "rotation_game_client_id";
-    try {
-      const v = localStorage.getItem(k);
-      if (v) return v;
-      const n = "c_" + Math.random().toString(16).slice(2) + Date.now().toString(16);
-      localStorage.setItem(k, n);
-      return n;
-    } catch {
-      return "c_" + Math.random().toString(16).slice(2);
-    }
-  }
+  window.addEventListener("error", (ev) => {
+    const msg = ev && ev.message ? ev.message : "Unknown error";
+    setStatus("JSエラー: " + msg);
+  });
 
-  function sleep(ms) {
-    return new Promise(res => setTimeout(res, ms));
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
 
-  // ===== Start =====
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
 })();
