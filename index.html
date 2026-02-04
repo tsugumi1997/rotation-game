@@ -37,37 +37,42 @@
   </header>
 
   <main>
-    <!-- 盤と操作を近く配置 -->
     <div class="playArea">
-      <div class="boardWrap">
-        <div id="board" class="board" aria-label="board"></div>
-      </div>
+      <!-- 盤と回転UIを近く -->
+      <section class="boardZone">
+        <div class="superBoard" id="board" aria-label="board"></div>
 
+        <div class="nearControls">
+          <div class="nearTitle">回転（小盤）</div>
+
+          <!-- 小盤選択：盤の近くに 2x2 -->
+          <div class="quadNear">
+            <button class="qbtn" data-q="0">左上</button>
+            <button class="qbtn" data-q="1">右上</button>
+            <button class="qbtn" data-q="2">左下</button>
+            <button class="qbtn" data-q="3">右下</button>
+          </div>
+
+          <div class="nearTitle">方向</div>
+          <div class="dirNear">
+            <button class="dbtn" data-d="-1">左</button>
+            <button class="dbtn" data-d="1">右</button>
+          </div>
+
+          <div class="nearRow">
+            <button id="commit" class="primary">回転して確定</button>
+            <button id="undo">Undo</button>
+            <button id="reset">Reset</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右：設定・オンライン -->
       <section class="panel">
         <div class="panelTitle">先攻・後攻（ローカル用）</div>
         <div class="row">
           <button id="localBlack" class="chip selected">先攻（黒）</button>
           <button id="localWhite" class="chip">後攻（白）</button>
-        </div>
-
-        <div class="panelTitle">回転 小盤</div>
-        <div class="quad">
-          <button class="qbtn" data-q="0">左上</button>
-          <button class="qbtn" data-q="1">右上</button>
-          <button class="qbtn" data-q="2">左下</button>
-          <button class="qbtn" data-q="3">右下</button>
-        </div>
-
-        <div class="panelTitle">方向</div>
-        <div class="dir">
-          <button class="dbtn" data-d="-1">左</button>
-          <button class="dbtn" data-d="1">右</button>
-        </div>
-
-        <div class="row">
-          <button id="commit" class="primary">回転して確定</button>
-          <button id="undo">Undo</button>
-          <button id="reset">Reset</button>
         </div>
 
         <div class="panelTitle">オンライン（同じRoomで同期）</div>
@@ -79,8 +84,8 @@
           </div>
 
           <div class="row">
-            <button id="joinBlack" class="chip">Roomで先攻（黒）になる</button>
-            <button id="joinWhite" class="chip">Roomで後攻（白）になる</button>
+            <button id="joinBlack" class="chip">Roomで先攻（黒）</button>
+            <button id="joinWhite" class="chip">Roomで後攻（白）</button>
           </div>
 
           <div class="roomHint">
@@ -98,7 +103,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-    <!-- Main -->
     <script src="./app.js"></script>
   </main>
 </body>
