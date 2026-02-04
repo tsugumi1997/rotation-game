@@ -1,21 +1,32 @@
-/* style.css（盤＋空マスを明るい木目。白コマは純白で差をつける） */
+/* style.css（全置換：木目＋見やすさ＋3x3強調＋アニメ） */
 
 :root{
-  --bg: #f6f1e7;
-  --panel: #fbf7ef;
+  --bg: #f5f0e7;
+  --panel: #f7f3ea;
   --ink: #2b2b2b;
 
-  --board-border: #3b2a1c;
+  /* 木目（明るめ） */
+  --wood1: #d9b27a;
+  --wood2: #c79a63;
+  --wood3: #b98752;
 
-  /* 木目のベース（盤・空マスで使い回す） */
-  --wood-1: #e6bf86;   /* 明るい */
-  --wood-2: #d8aa6f;   /* 少し濃い */
-  --wood-3: rgba(0,0,0,.05);
+  --board-border: #2f2f2f;
 
-  --cell-border: #2a1f16;
+  /* 空マス（木目っぽいけど白コマと区別つく） */
+  --cell-wood1: #f6e8d2;
+  --cell-wood2: #edd7b6;
 
   --black: #111111;
   --white: #ffffff;
+
+  /* サイズ（iPhoneでも計算できるように変数化） */
+  --cell: 52px;
+  --gap: 6px;
+  --pad: 12px;
+
+  /* 3x3ブロック（= 3セル + 2ギャップ） */
+  --block: calc((var(--cell) * 3) + (var(--gap) * 2));
+  --sep: 6px; /* 3×3の区切り太さ */
 }
 
 *{ box-sizing: border-box; }
@@ -42,7 +53,7 @@ h1{ margin: 0; font-size: 22px; }
   align-items:center;
   gap:8px;
   padding: 10px 12px;
-  border: 2px solid #d8c7a6;
+  border: 2px solid #cdbda8;
   border-radius: 14px;
   background: #fff;
 }
@@ -54,6 +65,7 @@ h1{ margin: 0; font-size: 22px; }
   font-weight: 900;
   margin: 8px 0 10px;
   letter-spacing: .5px;
+  text-shadow: 0 1px 0 rgba(0,0,0,.08);
 }
 
 .hudRow{
@@ -69,11 +81,25 @@ h1{ margin: 0; font-size: 22px; }
   gap: 8px;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 2px solid #d8c7a6;
+  border: 2px solid #cdbda8;
   background: #fff;
 }
 
+.statusPill{
+  border-color: #caa46b;
+  background: #fffaf0;
+}
+
 .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+/* 盤＋操作を近く */
+.playArea{
+  display:flex;
+  gap: 16px;
+  align-items:flex-start;
+  justify-content:center;
+  flex-wrap: wrap; /* スマホは縦並び */
+}
 
 .boardWrap{
   display:flex;
@@ -81,111 +107,151 @@ h1{ margin: 0; font-size: 22px; }
   margin: 14px 0 10px;
 }
 
-/* ===== 盤（明るい木目） ===== */
+/* ===== 盤（木目＋3x3強調） ===== */
 .board{
   display:grid;
-  grid-template-columns: repeat(6, 52px);
-  grid-template-rows: repeat(6, 52px);
-  gap: 6px;
-  padding: 12px;
+  grid-template-columns: repeat(6, var(--cell));
+  grid-template-rows: repeat(6, var(--cell));
+  gap: var(--gap);
+  padding: var(--pad);
 
+  /* 外側：木目 */
   background:
+    linear-gradient(90deg, rgba(255,255,255,.10), rgba(0,0,0,.05)),
     repeating-linear-gradient(
       90deg,
-      var(--wood-1) 0px,
-      var(--wood-1) 12px,
-      var(--wood-2) 12px,
-      var(--wood-2) 24px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,.10) 0px,
-      rgba(255,255,255,.10) 7px,
-      var(--wood-3) 7px,
-      var(--wood-3) 14px
+      var(--wood1) 0 18px,
+      var(--wood2) 18px 36px,
+      var(--wood3) 36px 54px
     );
-  background-blend-mode: overlay;
 
-  border: 4px solid var(--board-border);
-  border-radius: 16px;
-  box-shadow: 0 2px 0 rgba(0,0,0,.10);
+  border: 5px solid var(--board-border);
+  border-radius: 18px;
+  box-shadow: 0 3px 0 rgba(0,0,0,.10);
+  position: relative;
+
+  /* 置く/回転が見やすいように少しだけアニメ */
+  transition: transform 0.25s ease;
 }
 
+/* 3×3の区切り線を盤の上に描く（見失い防止） */
+.board::before{
+  content:"";
+  position:absolute;
+  inset: var(--pad);
+  pointer-events:none;
+  border-radius: 10px;
+  background:
+    /* 縦の区切り（3列目と4列目の間） */
+    linear-gradient(
+      to right,
+      transparent 0 calc(var(--block)),
+      rgba(0,0,0,0.35) calc(var(--block)) calc(var(--block) + var(--sep)),
+      transparent calc(var(--block) + var(--sep)) 100%
+    ),
+    /* 横の区切り（3行目と4行目の間） */
+    linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--block)),
+      rgba(0,0,0,0.35) calc(var(--block)) calc(var(--block) + var(--sep)),
+      transparent calc(var(--block) + var(--sep)) 100%
+    );
+  mix-blend-mode: multiply;
+  opacity: .75;
+}
+
+/* iPhoneで少し縮める */
 @media (max-width: 420px){
-  .board{
-    grid-template-columns: repeat(6, 46px);
-    grid-template-rows: repeat(6, 46px);
-    gap: 5px;
-    padding: 10px;
+  :root{
+    --cell: 46px;
+    --gap: 5px;
+    --pad: 10px;
+    --sep: 5px;
   }
 }
 
-/* ===== 空マスも木目（ただし“白コマ”と区別できるよう薄く） ===== */
+/* マス（空の木目：白コマと区別つくように縦筋＆中心陰影） */
 .cell{
-  width: 52px;
-  height: 52px;
+  width: var(--cell);
+  height: var(--cell);
   border-radius: 999px;
-  border: 3px solid var(--cell-border);
+  border: 3px solid #1f1f1f;
 
-  /* 空マス＝薄い木目＋中心が少し明るい */
   background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), rgba(255,255,255,0) 60%),
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.50), rgba(255,255,255,0) 55%),
     repeating-linear-gradient(
       90deg,
-      rgba(255,255,255,.10) 0px,
-      rgba(255,255,255,.10) 10px,
-      rgba(0,0,0,.04) 10px,
-      rgba(0,0,0,.04) 20px
-    ),
-    linear-gradient(#f7e6cc, #f1d6b2);
+      var(--cell-wood1) 0 10px,
+      var(--cell-wood2) 10px 20px
+    );
 
   cursor: pointer;
   touch-action: manipulation;
 
-  box-shadow:
-    0 1px 0 rgba(0,0,0,.12),
-    inset 0 0 0 1px rgba(255,255,255,.25);
+  /* “置いた/変わった”が追えるように */
+  transition: transform 0.22s ease, filter 0.22s ease, box-shadow 0.22s ease;
 }
 
-@media (max-width: 420px){
-  .cell{ width:46px; height:46px; border-width:3px; }
-}
-
-/* 黒石：しっかり黒 */
+/* 黒石：深い黒＋艶 */
 .cell[data-mark="1"]{
-  background: var(--black);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 45%),
+    radial-gradient(circle at 70% 80%, rgba(255,255,255,.08), rgba(255,255,255,0) 55%),
+    linear-gradient(#1a1a1a, #050505);
   border-color: #000;
-  box-shadow: 0 1px 0 rgba(0,0,0,.25);
+  box-shadow: inset 0 2px 5px rgba(255,255,255,.10);
 }
 
-/* 白石：純白＋影＋内側の薄いグレーで“空マス(薄木)”と確実に区別 */
+/* 白石：縁取り太め＋陰影で背景と分離 */
 .cell[data-mark="2"]{
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,.95), rgba(230,230,230,.75) 60%),
+    linear-gradient(#ffffff, #f0f0f0);
   border-color: #000;
   box-shadow:
-    0 2px 0 rgba(0,0,0,.18),
-    inset 0 0 0 2px rgba(0,0,0,.10);
+    inset 0 2px 6px rgba(0,0,0,.12),
+    0 1px 0 rgba(255,255,255,.25);
 }
 
-/* 仮置き（pending） */
+/* 直前に変化したコマを少し強調（追える） */
+.cell.justPlaced{
+  transform: scale(1.08);
+  filter: saturate(1.05);
+}
+
+/* 仮置き（pending）：オレンジを濃く＆光らせる */
 .cell.pending{
-  outline: 5px solid rgba(255, 170, 0, .55);
-  outline-offset: 2px;
+  outline: 7px solid #ff9800;
+  outline-offset: 3px;
+  box-shadow: 0 0 14px rgba(255,152,0,.85);
 }
 
-/* 勝利ライン（win） */
+/* 選択した小盤（3×3）を薄く強調 */
+.cell.quadSel{
+  box-shadow: 0 0 0 5px rgba(0,160,255,.14);
+}
+
+/* 勝利ライン */
 .cell.win{
-  outline: 6px solid rgba(0, 150, 255, .65);
+  outline: 6px solid rgba(0, 160, 255, .75);
   outline-offset: 2px;
 }
 
-/* ===== 操作パネル ===== */
+/* 盤の回転アニメ（全体を軽く回して「回転した感」） */
+.board.rotating{
+  animation: boardRotate 0.35s ease;
+}
+@keyframes boardRotate{
+  0%{ transform: rotate(0deg); }
+  100%{ transform: rotate(var(--rot, 12deg)); }
+}
+
+/* ===== パネル ===== */
 .panel{
-  max-width: 520px;
-  margin: 12px auto 0;
+  width: min(520px, 92vw);
   padding: 14px;
   border-radius: 16px;
-  border: 2px solid #d8c7a6;
+  border: 2px solid #cdbda8;
   background: var(--panel);
 }
 
@@ -218,14 +284,20 @@ h1{ margin: 0; font-size: 22px; }
 button{
   padding: 12px 14px;
   border-radius: 14px;
-  border: 2px solid #d8c7a6;
+  border: 2px solid #cdbda8;
   background: #fff;
   font-weight: 700;
 }
 
 button.primary{
-  background: #f0d6ac;
-  border-color: #d8c7a6;
+  background: #ead8b8;
+  border-color: #cdbda8;
+}
+
+button.selected,
+.chip.selected{
+  border-color: #3a7bd5;
+  box-shadow: 0 0 0 3px rgba(58,123,213,.25);
 }
 
 .roomBox{ margin-top: 10px; }
@@ -239,7 +311,7 @@ button.primary{
   flex: 1 1 180px;
   padding: 12px 12px;
   border-radius: 14px;
-  border: 2px solid #d8c7a6;
+  border: 2px solid #cdbda8;
   background: #fff;
 }
 .roomHint{
@@ -252,15 +324,4 @@ button.primary{
   max-width: 520px;
   margin: 12px auto 0;
   color: #555;
-}
-/* 回転小盤・方向の「選択中」表示 */
-.qbtn.selected, .dbtn.selected{
-  background: #ead8b8;
-  border-color: #8a6a3f;
-  box-shadow: 0 0 0 3px rgba(138,106,63,.25);
-}
-
-/* 押せない状態の見た目（任意） */
-.qbtn:disabled, .dbtn:disabled{
-  opacity: .45;
 }
