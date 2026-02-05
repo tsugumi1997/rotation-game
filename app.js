@@ -4,7 +4,7 @@
   const DIR_LEFT = -1, DIR_RIGHT = 1;
 
   // ======== ここで速度を調整できます（好みで） ========
-  const ROTATE_MS = 900;        // 回転アニメの長さ（ゆっくり）
+  const ROTATE_MS = 1200;        // 回転アニメの長さ（ゆっくり）
   const AI_THINK_MS = 650;      // AIが「考えてる」待ち
   const AI_PLACE_MS = 520;      // AIが置いたのが見える待ち
   const AI_PICKROT_MS = 520;    // AIが回転選択したのが見える待ち
