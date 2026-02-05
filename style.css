@@ -434,3 +434,64 @@ button:disabled{
   .corner.bl{ transform: translate(0, 0); bottom: 8px; left: 8px; }
   .corner.br{ transform: translate(0, 0); bottom: 8px; right: 8px; }
 }
+
+/* ===== 盤＋四隅パネル：重ならない配置（3×3グリッド） ===== */
+
+.boardStage{
+  display: grid;
+  grid-template-columns: 160px auto 160px; /* 左パネル / 盤 / 右パネル */
+  grid-template-rows: auto auto auto;      /* 上パネル / 盤 / 下パネル */
+  gap: 10px;
+  align-items: start;
+  justify-content: center;
+  margin: 10px auto;
+  max-width: 900px;
+}
+
+.superBoard{
+  grid-column: 2;
+  grid-row: 2;
+}
+
+/* 四隅 */
+.corner{
+  padding: 10px;
+  border-radius: 16px;
+  border: 2px solid #cdbda8;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(6px);
+}
+
+.corner.tl{ grid-column: 1; grid-row: 1; }
+.corner.tr{ grid-column: 3; grid-row: 1; }
+.corner.bl{ grid-column: 1; grid-row: 3; }
+.corner.br{ grid-column: 3; grid-row: 3; }
+
+.cornerTitle{
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.cornerGrid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cornerGrid.oneCol{
+  grid-template-columns: 1fr;
+}
+
+/* iPhone縦画面：左右に置けないので下に回す（それでも重ならない） */
+@media (max-width: 520px){
+  .boardStage{
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 10px;
+  }
+  .superBoard{ grid-column: 1 / span 2; grid-row: 2; }
+  .corner.tl{ grid-column: 1; grid-row: 1; }
+  .corner.tr{ grid-column: 2; grid-row: 1; }
+  .corner.bl{ grid-column: 1; grid-row: 3; }
+  .corner.br{ grid-column: 2; grid-row: 3; }
+}
