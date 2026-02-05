@@ -41,39 +41,40 @@
       <!-- 盤 -->
       <section class="boardZone">
   <div class="boardStage">
-    <div class="superBoard" id="board" aria-label="board"></div>
-
-    <!-- 左上：小盤選択（上段2つ） -->
+    <!-- 左上：小盤 -->
     <div class="corner tl">
       <div class="cornerTitle">小盤</div>
-      <div class="cornerGrid2">
+      <div class="cornerGrid">
         <button class="qbtn" data-q="0">左上</button>
         <button class="qbtn" data-q="1">右上</button>
       </div>
     </div>
 
-    <!-- 右上：小盤選択（下段2つ） -->
+    <!-- 右上：小盤 -->
     <div class="corner tr">
       <div class="cornerTitle">小盤</div>
-      <div class="cornerGrid2">
+      <div class="cornerGrid">
         <button class="qbtn" data-q="2">左下</button>
         <button class="qbtn" data-q="3">右下</button>
       </div>
     </div>
 
+    <!-- 中央：盤 -->
+    <div class="superBoard" id="board" aria-label="board"></div>
+
     <!-- 左下：方向 -->
     <div class="corner bl">
       <div class="cornerTitle">方向</div>
-      <div class="cornerGrid2">
+      <div class="cornerGrid">
         <button class="dbtn" data-d="-1">左</button>
         <button class="dbtn" data-d="1">右</button>
       </div>
     </div>
 
-    <!-- 右下：確定/Undo/Reset -->
+    <!-- 右下：操作 -->
     <div class="corner br">
       <div class="cornerTitle">操作</div>
-      <div class="cornerGrid1">
+      <div class="cornerGrid oneCol">
         <button id="commit" class="primary">確定</button>
         <button id="undo">Undo</button>
         <button id="reset">Reset</button>
