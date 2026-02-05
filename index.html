@@ -40,31 +40,48 @@
     <div class="playArea">
       <!-- 盤 -->
       <section class="boardZone">
-        <div class="superBoard" id="board" aria-label="board"></div>
+  <div class="boardStage">
+    <div class="superBoard" id="board" aria-label="board"></div>
 
-        <!-- 盤の近くに操作 -->
-        <div class="nearControls">
-          <div class="nearTitle">回転する小盤（3×3）</div>
-          <div class="quadNear">
-            <button class="qbtn" data-q="0">左上</button>
-            <button class="qbtn" data-q="1">右上</button>
-            <button class="qbtn" data-q="2">左下</button>
-            <button class="qbtn" data-q="3">右下</button>
-          </div>
+    <!-- 左上：小盤選択（上段2つ） -->
+    <div class="corner tl">
+      <div class="cornerTitle">小盤</div>
+      <div class="cornerGrid2">
+        <button class="qbtn" data-q="0">左上</button>
+        <button class="qbtn" data-q="1">右上</button>
+      </div>
+    </div>
 
-          <div class="nearTitle">方向</div>
-          <div class="dirNear">
-            <button class="dbtn" data-d="-1">左</button>
-            <button class="dbtn" data-d="1">右</button>
-          </div>
+    <!-- 右上：小盤選択（下段2つ） -->
+    <div class="corner tr">
+      <div class="cornerTitle">小盤</div>
+      <div class="cornerGrid2">
+        <button class="qbtn" data-q="2">左下</button>
+        <button class="qbtn" data-q="3">右下</button>
+      </div>
+    </div>
 
-          <div class="nearRow">
-            <button id="commit" class="primary">回転して確定</button>
-            <button id="undo">Undo</button>
-            <button id="reset">Reset</button>
-          </div>
-        </div>
-      </section>
+    <!-- 左下：方向 -->
+    <div class="corner bl">
+      <div class="cornerTitle">方向</div>
+      <div class="cornerGrid2">
+        <button class="dbtn" data-d="-1">左</button>
+        <button class="dbtn" data-d="1">右</button>
+      </div>
+    </div>
+
+    <!-- 右下：確定/Undo/Reset -->
+    <div class="corner br">
+      <div class="cornerTitle">操作</div>
+      <div class="cornerGrid1">
+        <button id="commit" class="primary">確定</button>
+        <button id="undo">Undo</button>
+        <button id="reset">Reset</button>
+      </div>
+    </div>
+  </div>
+</section>
+  
 
       <!-- 右側：ローカル先後＋オンライン -->
       <section class="panel">
