@@ -720,3 +720,11 @@
   else boot();
 
 })();
+
+// ===== 保険：rotate固まり防止 =====
+setInterval(() => {
+  if (phase === "rotate" && (pendingIndex < 0 || pendingColor === 0)) {
+    phase = "place";
+    render();
+  }
+}, 200);
