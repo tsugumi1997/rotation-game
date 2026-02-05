@@ -327,7 +327,9 @@
     if (elBoard.classList.contains("animating")) return;
     if (isGameOver()) return;
     if (!isHumanTurn()) return;
-    if (phase !== "place") return;
+    // 保険：rotate なのに仮置きが消えているなら place に戻す
+if (phase === "rotate" && pendingIndex < 0) phase = "place";
+    if (phase !== "place" && phase !== "rotate") return;
     if (room && !onlineSeat) return;
     if (board[i] !== EMPTY) return;
 
