@@ -221,3 +221,21 @@ h1{ margin:0; font-size:22px; }
   :root{ --cellSize:50px; --gap:7px; }
   .ctlRowTop, .ctlRowBottom{ grid-template-columns: 1fr; } /* どうしても狭い時は縦に */
 }
+
+/* ===== 強制: 盤を必ず 6×6 にする（末尾に追記） ===== */
+#board{
+  display: grid !important;
+  grid-template-columns: repeat(6, var(--cellSize, 56px)) !important;
+  grid-template-rows: repeat(6, var(--cellSize, 56px)) !important;
+  gap: var(--gap, 8px) !important;
+
+  /* 変な崩れ防止 */
+  align-items: center !important;
+  justify-items: center !important;
+  place-content: center !important;
+}
+
+#board .cell{
+  width: var(--cellSize, 56px) !important;
+  height: var(--cellSize, 56px) !important;
+}
