@@ -37,88 +37,88 @@
   </header>
 
   <main>
-    <div class="playArea">
-      <!-- 盤 -->
-      <section class="boardZone">
-  <div class="boardFrame">
-    <!-- 上段：左上・右上 -->
-    <div class="quadCtl qctl-tl">
-      <div class="ctlLabel">左上</div>
-      <div class="ctlRow">
-        <button class="rotBtn" data-q="0" data-d="-1">左</button>
-        <button class="rotBtn" data-q="0" data-d="1">右</button>
-      </div>
-    </div>
+    <!-- 盤＋外側操作（ここが今回の主役） -->
+    <section class="boardZone">
+      <div class="boardFrame">
+        <!-- 盤（app.jsが中身を生成/更新） -->
+        <div id="board" class="superBoard" aria-label="board"></div>
 
-    <div class="quadCtl qctl-tr">
-      <div class="ctlLabel">右上</div>
-      <div class="ctlRow">
-        <button class="rotBtn" data-q="1" data-d="-1">左</button>
-        <button class="rotBtn" data-q="1" data-d="1">右</button>
-      </div>
-    </div>
-
-    <!-- 盤 -->
-    <div class="boardCenter">
-      <div class="superBoard" id="board" aria-label="board"></div>
-    </div>
-
-    <!-- 下段：左下・右下 -->
-    <div class="quadCtl qctl-bl">
-      <div class="ctlLabel">左下</div>
-      <div class="ctlRow">
-        <button class="rotBtn" data-q="2" data-d="-1">左</button>
-        <button class="rotBtn" data-q="2" data-d="1">右</button>
-      </div>
-    </div>
-
-    <div class="quadCtl qctl-br">
-      <div class="ctlLabel">右下</div>
-      <div class="ctlRow">
-        <button class="rotBtn" data-q="3" data-d="-1">左</button>
-        <button class="rotBtn" data-q="3" data-d="1">右</button>
-      </div>
-    </div>
-
-    <!-- 下中央：確定＋Undo/Reset -->
-    <div class="opBox">
-      <button id="commit" class="primary">確定</button>
-      <div class="opRow">
-        <button id="undo">Undo</button>
-        <button id="reset">Reset</button>
-      </div>
-    </div>
-  </div>
-</section>
-  
-
-      <!-- 右側：ローカル先後＋オンライン -->
-      <section class="panel">
-        <div class="panelTitle">ローカル（1人 / AI）</div>
-        <div class="row">
-          <button id="playAsBlack" class="chip selected">先攻（黒）</button>
-          <button id="playAsWhite" class="chip">後攻（白）</button>
-        </div>
-        <div class="roomHint">AI（白）はローカル時のみ動きます</div>
-
-        <div class="panelTitle">オンライン（Firebase）</div>
-        <div class="roomRow">
-          <input id="roomCode" class="roomInput" placeholder="room番号（例: 123456）" inputmode="numeric" />
-          <button id="applyRoom">適用</button>
-          <button id="copyLink">共有URL</button>
+        <!-- 左上（小盤0） -->
+        <div class="ctlBox ctlTL" aria-label="ctl top-left">
+          <div class="ctlTitle">左上</div>
+          <div class="ctlRow">
+            <button class="miniBtn qd" data-q="0" data-d="-1">左</button>
+            <button class="miniBtn qd" data-q="0" data-d="1">右</button>
+          </div>
         </div>
 
-        <div class="row">
-          <button id="joinBlack" class="chip">Roomで先攻（黒）</button>
-          <button id="joinWhite" class="chip">Roomで後攻（白）</button>
-          <button id="leaveRoom" class="chip">Roomを抜ける</button>
+        <!-- 右上（小盤1） -->
+        <div class="ctlBox ctlTR" aria-label="ctl top-right">
+          <div class="ctlTitle">右上</div>
+          <div class="ctlRow">
+            <button class="miniBtn qd" data-q="1" data-d="-1">左</button>
+            <button class="miniBtn qd" data-q="1" data-d="1">右</button>
+          </div>
         </div>
 
-        <div class="roomHint">
-          同じURL（例：<span class="mono">?room=123456</span>）を共有して遊べます
+        <!-- 左下（小盤2） -->
+        <div class="ctlBox ctlBL" aria-label="ctl bottom-left">
+          <div class="ctlTitle">左下</div>
+          <div class="ctlRow">
+            <button class="miniBtn qd" data-q="2" data-d="-1">左</button>
+            <button class="miniBtn qd" data-q="2" data-d="1">右</button>
+          </div>
         </div>
-      </section>
-    </div>
+
+        <!-- 右下（小盤3） -->
+        <div class="ctlBox ctlBR" aria-label="ctl bottom-right">
+          <div class="ctlTitle">右下</div>
+          <div class="ctlRow">
+            <button class="miniBtn qd" data-q="3" data-d="-1">左</button>
+            <button class="miniBtn qd" data-q="3" data-d="1">右</button>
+          </div>
+        </div>
+
+        <!-- 下中央：確定/Undo/Reset -->
+        <div class="ctlBox ctlBottom" aria-label="ctl bottom">
+          <div class="ctlTitle">操作</div>
+          <div class="ctlCol">
+            <button id="commit" class="primary wideBtn">確定</button>
+            <div class="ctlRow">
+              <button id="undo" class="wideBtn">Undo</button>
+              <button id="reset" class="wideBtn">Reset</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ここから下は今まで通り（ローカル/オンライン） -->
+    <section class="panel">
+      <div class="panelTitle">ローカル（1人 / AI）</div>
+      <div class="row">
+        <button id="playAsBlack" class="chip selected">先攻（黒）</button>
+        <button id="playAsWhite" class="chip">後攻（白）</button>
+      </div>
+      <div class="roomHint">AI（白）はローカル時のみ動きます</div>
+
+      <div class="panelTitle">オンライン（Firebase）</div>
+      <div class="roomRow">
+        <input id="roomCode" class="roomInput" placeholder="room番号（例: 123456）" inputmode="numeric" />
+        <button id="applyRoom">適用</button>
+        <button id="copyLink">共有URL</button>
+      </div>
+
+      <div class="row">
+        <button id="joinBlack" class="chip">Roomで先攻（黒）</button>
+        <button id="joinWhite" class="chip">Roomで後攻（白）</button>
+        <button id="leaveRoom" class="chip">Roomを抜ける</button>
+      </div>
+
+      <div class="roomHint">
+        同じURL（例：<span class="mono">?room=123456</span>）を共有して遊べます
+      </div>
+    </section>
 
     <footer class="foot">
       反映が遅い時は URL末尾に <span class="mono">?v=2</span> のように付けて開くと直りやすいです
