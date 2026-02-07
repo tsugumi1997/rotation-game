@@ -1,259 +1,173 @@
 /* style.css（全置換） */
 
 :root{
-  --bg: #f5f0e7;
-  --panel: #f7f3ea;
-  --ink: #2b2b2b;
+  --bg:#f5f0e7;
+  --panel:#f7f3ea;
+  --ink:#2b2b2b;
 
-  --wood1: #d7b07a;
-  --wood2: #c99b60;
+  --wood1:#d7b07a;
+  --wood2:#c99b60;
 
-  --board-border: #2a2117;
-  --sub-border: #2a2117;
+  --board-border:#2a2117;
 
-  --black: #111111;
-  --white: #ffffff;
+  --cellSize:56px;
+  --gap:8px;
 
-  --cellSize: 56px;
-  --gap: 8px;
-
-  --ctlW: 240px;
-  --ctlPad: 14px;
+  --ctlW:220px;
 }
 
-*{ box-sizing: border-box; }
+*{ box-sizing:border-box; }
 body{
   margin:0;
   font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
-  background: var(--bg);
-  color: var(--ink);
+  background:var(--bg);
+  color:var(--ink);
 }
-
-header, main, footer{ padding: 12px; }
+header, main{ padding:12px; }
 
 .titleRow{
   display:flex;
   align-items:center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content:space-between;
+  gap:12px;
 }
-h1{ margin: 0; font-size: 22px; }
+h1{ margin:0; font-size:22px; }
 
 .aiToggle{
   user-select:none;
   display:flex;
   align-items:center;
   gap:8px;
-  padding: 10px 12px;
-  border: 2px solid #cdbda8;
-  border-radius: 14px;
-  background: #fff;
+  padding:10px 12px;
+  border:2px solid #cdbda8;
+  border-radius:14px;
+  background:#fff;
 }
 
-#hud{ margin-top: 10px; }
+#hud{ margin-top:10px; }
 .turnBig{
-  font-size: 34px;
-  font-weight: 900;
-  margin: 8px 0 10px;
-  letter-spacing: .5px;
+  font-size:34px;
+  font-weight:900;
+  margin:8px 0 10px;
 }
 .hudRow{
   display:flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:10px;
 }
 .pill{
   display:inline-flex;
   align-items:center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 2px solid #cdbda8;
-  background: #fff;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:2px solid #cdbda8;
+  background:#fff;
 }
-.statusPill{ width: 100%; }
+.statusPill{ width:100%; }
 .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
-/* ===== 盤エリア ===== */
+/* 盤エリア */
 .boardZone{
   display:flex;
   justify-content:center;
-  padding: 10px 0 16px;
+  padding:10px 0 16px;
 }
 
-/* 盤を中心に「外側」にボタンを置くため relative */
+/* ここが重要：absoluteの基準 */
 .boardFrame{
-  position: relative;
-  display: inline-block;
-  padding: 90px 30px 130px; /* 外側操作の“置き場” */
+  position:relative;
+  display:inline-block;
+  padding:90px 18px 150px; /* 四隅＋下中央の置き場 */
 }
 
-/* 盤そのもの（4つの小盤を描画している想定） */
+/* 盤 */
 .superBoard{
   width: calc(var(--cellSize) * 6 + var(--gap) * 5 + 28px);
   height: calc(var(--cellSize) * 6 + var(--gap) * 5 + 28px);
-
-  border-radius: 22px;
-  border: 6px solid var(--board-border);
-
+  border-radius:22px;
+  border:6px solid var(--board-border);
   background:
     repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 18px, rgba(0,0,0,.04) 18px 36px),
     linear-gradient(180deg, var(--wood1), var(--wood2));
-
-  box-shadow: 0 10px 22px rgba(0,0,0,.18);
-  overflow: hidden;
+  box-shadow:0 10px 22px rgba(0,0,0,.18);
+  overflow:hidden;
 }
 
-/* app.jsが作るセル想定（既存のクラス名に合わせてください） */
-.cell{
-  width: var(--cellSize);
-  height: var(--cellSize);
-  border-radius: 999px;
-  border: 3px solid #1d140c;
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.55), rgba(255,255,255,0) 55%),
-    linear-gradient(180deg, #f3e5cc, #e9d2ac);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.cell[data-mark="1"]{
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.25), rgba(255,255,255,0) 55%),
-    linear-gradient(180deg, #1b1b1b, #070707);
-  border-color: #000;
-}
-.cell[data-mark="2"]{
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.9), rgba(255,255,255,0) 55%),
-    linear-gradient(180deg, #ffffff, #e9e9e9);
-  border-color: #000;
-}
-
-.cell.pending{
-  outline: 7px solid rgba(255, 140, 0, .75);
-  outline-offset: 2px;
-}
-.cell.win{
-  outline: 7px solid rgba(0, 160, 255, .70);
-  outline-offset: 2px;
-}
-
-/* ===== 外側コントロール（四隅＋下中央） ===== */
+/* 外側ボタン（四隅＋下中央） */
 .ctlBox{
-  position: absolute;
+  position:absolute;                /* ←効いてないと縦並びになる */
   width: var(--ctlW);
-  padding: var(--ctlPad);
-  border-radius: 18px;
-  border: 2px solid #cdbda8;
+  padding:12px;
+  border-radius:16px;
+  border:2px solid #cdbda8;
   background: rgba(255,255,255,.78);
   backdrop-filter: blur(6px);
-  box-shadow: 0 10px 20px rgba(0,0,0,.12);
+  box-shadow:0 10px 20px rgba(0,0,0,.12);
 }
+.ctlTitle{ font-weight:900; margin-bottom:8px; }
 
-.ctlTitle{
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-
-.ctlRow{
-  display:flex;
-  gap: 10px;
-  justify-content: space-between;
-}
-.ctlCol{ display:flex; flex-direction: column; gap: 10px; }
+.ctlRow{ display:flex; gap:10px; }
+.ctlCol{ display:flex; flex-direction:column; gap:10px; }
 
 .miniBtn, .wideBtn{
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 2px solid #cdbda8;
-  background: #fff;
-  font-weight: 800;
-  flex: 1 1 auto;
+  padding:12px 14px;
+  border-radius:14px;
+  border:2px solid #cdbda8;
+  background:#fff;
+  font-weight:800;
+  flex:1 1 auto;
 }
-
 .primary{
-  background: #ead8b8;
-  border-color: #cdbda8;
+  background:#ead8b8;
+  border-color:#cdbda8;
 }
 
-/* 位置：盤の外側（あなたの手描き図の配置） */
-.ctlTL{ top: 6px; left: 6px; }
-.ctlTR{ top: 6px; right: 6px; }
-.ctlBL{ bottom: 6px; left: 6px; }
-.ctlBR{ bottom: 6px; right: 6px; }
+/* 位置（四隅） */
+.ctlTL{ top:6px; left:6px; }
+.ctlTR{ top:6px; right:6px; }
+.ctlBL{ bottom:6px; left:6px; }
+.ctlBR{ bottom:6px; right:6px; }
 
-/* 下中央：確定/Undo/Reset */
+/* 下中央 */
 .ctlBottom{
-  left: 50%;
-  bottom: -6px;
-  transform: translateX(-50%);
+  left:50%;
+  bottom:-6px;
+  transform:translateX(-50%);
   width: min(320px, 86vw);
 }
 
-/* ===== パネル（ローカル/オンライン） ===== */
 .panel{
-  max-width: 680px;
-  margin: 10px auto 0;
-  padding: 14px;
-  border-radius: 16px;
-  border: 2px solid #cdbda8;
-  background: var(--panel);
+  max-width:680px;
+  margin:10px auto 0;
+  padding:14px;
+  border-radius:16px;
+  border:2px solid #cdbda8;
+  background:var(--panel);
 }
-
-.panelTitle{ font-weight: 900; margin: 10px 0; }
-.row{
-  display:flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 10px 0 8px;
-}
-
+.panelTitle{ font-weight:900; margin:10px 0; }
+.row{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 8px; }
 .chip{
-  padding: 12px 14px;
-  border-radius: 999px;
-  border: 2px solid #cdbda8;
-  background: #fff;
-  font-weight: 900;
+  padding:12px 14px;
+  border-radius:999px;
+  border:2px solid #cdbda8;
+  background:#fff;
+  font-weight:900;
 }
-.chip.selected{
-  outline: 4px solid rgba(0, 140, 255, .35);
-}
+.chip.selected{ outline:4px solid rgba(0,140,255,.35); }
 
-.roomRow{
-  display:flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
+.roomRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .roomInput{
-  flex: 1 1 180px;
-  padding: 12px 12px;
-  border-radius: 14px;
-  border: 2px solid #cdbda8;
-  background: #fff;
+  flex:1 1 180px;
+  padding:12px 12px;
+  border-radius:14px;
+  border:2px solid #cdbda8;
+  background:#fff;
 }
-.roomHint{
-  margin-top: 8px;
-  color: #555;
-  font-size: 13px;
-}
+.roomHint{ margin-top:8px; color:#555; font-size:13px; }
 
-.foot{
-  max-width: 680px;
-  margin: 12px auto 0;
-  color: #555;
-}
-
-/* ===== スマホ微調整（“外側配置”は維持する） ===== */
-@media (max-width: 420px){
-  :root{
-    --cellSize: 50px;
-    --gap: 7px;
-    --ctlW: 210px;
-  }
-  .boardFrame{
-    padding: 84px 16px 124px;
-  }
+@media (max-width:420px){
+  :root{ --cellSize:50px; --gap:7px; --ctlW:200px; }
+  .boardFrame{ padding:84px 10px 145px; }
 }
