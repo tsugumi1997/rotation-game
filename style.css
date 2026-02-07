@@ -573,7 +573,7 @@ button:disabled{
 }
 
 /* 小さい画面では、外側配置が苦しくなるので縦積みに退避 */
-@media (max-width: 520px){
+@media (max-width: 360px){
   .boardFrame{
     padding: 0;
     width: 100%;
