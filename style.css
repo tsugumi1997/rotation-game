@@ -495,3 +495,93 @@ button:disabled{
   .corner.bl{ grid-column: 1; grid-row: 3; }
   .corner.br{ grid-column: 2; grid-row: 3; }
 }
+
+/* ===== 盤の外側UI：ラフ案みたいに配置 ===== */
+
+.boardFrame{
+  position: relative;
+  width: max-content;
+  margin: 10px auto 0;
+  padding: 80px 20px 120px; /* 上にボタン、下に確定枠のスペース */
+}
+
+.boardCenter{
+  display:flex;
+  justify-content:center;
+}
+
+/* 各小盤の“左/右” */
+.quadCtl{
+  position: absolute;
+  width: 160px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 2px solid #cdbda8;
+  background: rgba(255,255,255,.80);
+  backdrop-filter: blur(6px);
+}
+
+.ctlLabel{
+  font-weight: 900;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.ctlRow{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rotBtn{
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid #cdbda8;
+  background: #fff;
+  font-weight: 800;
+}
+
+/* 位置：上左右・下左右 */
+.qctl-tl{ left: 10px; top: 10px; }
+.qctl-tr{ right: 10px; top: 10px; }
+.qctl-bl{ left: 10px; bottom: 10px; }
+.qctl-br{ right: 10px; bottom: 10px; }
+
+/* 下中央の操作枠 */
+.opBox{
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -95px;           /* 盤の下に出す */
+  width: 220px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 2px solid #cdbda8;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(6px);
+}
+
+.opBox #commit{
+  width: 100%;
+}
+
+.opRow{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* 小さい画面では、外側配置が苦しくなるので縦積みに退避 */
+@media (max-width: 520px){
+  .boardFrame{
+    padding: 0;
+    width: 100%;
+  }
+  .quadCtl, .opBox{
+    position: static;
+    transform: none;
+    width: auto;
+    margin: 10px 0;
+  }
+}
