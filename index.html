@@ -40,42 +40,50 @@
     <div class="playArea">
       <!-- 盤 -->
       <section class="boardZone">
-  <div class="boardStage">
-    <!-- 左上：小盤 -->
-    <div class="corner tl">
-      <div class="cornerTitle">小盤</div>
-      <div class="cornerGrid">
-        <button class="qbtn" data-q="0">左上</button>
-        <button class="qbtn" data-q="1">右上</button>
+  <div class="boardFrame">
+    <!-- 上段：左上・右上 -->
+    <div class="quadCtl qctl-tl">
+      <div class="ctlLabel">左上</div>
+      <div class="ctlRow">
+        <button class="rotBtn" data-q="0" data-d="-1">左</button>
+        <button class="rotBtn" data-q="0" data-d="1">右</button>
       </div>
     </div>
 
-    <!-- 右上：小盤 -->
-    <div class="corner tr">
-      <div class="cornerTitle">小盤</div>
-      <div class="cornerGrid">
-        <button class="qbtn" data-q="2">左下</button>
-        <button class="qbtn" data-q="3">右下</button>
+    <div class="quadCtl qctl-tr">
+      <div class="ctlLabel">右上</div>
+      <div class="ctlRow">
+        <button class="rotBtn" data-q="1" data-d="-1">左</button>
+        <button class="rotBtn" data-q="1" data-d="1">右</button>
       </div>
     </div>
 
-    <!-- 中央：盤 -->
-    <div class="superBoard" id="board" aria-label="board"></div>
+    <!-- 盤 -->
+    <div class="boardCenter">
+      <div class="superBoard" id="board" aria-label="board"></div>
+    </div>
 
-    <!-- 左下：方向 -->
-    <div class="corner bl">
-      <div class="cornerTitle">方向</div>
-      <div class="cornerGrid">
-        <button class="dbtn" data-d="-1">左</button>
-        <button class="dbtn" data-d="1">右</button>
+    <!-- 下段：左下・右下 -->
+    <div class="quadCtl qctl-bl">
+      <div class="ctlLabel">左下</div>
+      <div class="ctlRow">
+        <button class="rotBtn" data-q="2" data-d="-1">左</button>
+        <button class="rotBtn" data-q="2" data-d="1">右</button>
       </div>
     </div>
 
-    <!-- 右下：操作 -->
-    <div class="corner br">
-      <div class="cornerTitle">操作</div>
-      <div class="cornerGrid oneCol">
-        <button id="commit" class="primary">確定</button>
+    <div class="quadCtl qctl-br">
+      <div class="ctlLabel">右下</div>
+      <div class="ctlRow">
+        <button class="rotBtn" data-q="3" data-d="-1">左</button>
+        <button class="rotBtn" data-q="3" data-d="1">右</button>
+      </div>
+    </div>
+
+    <!-- 下中央：確定＋Undo/Reset -->
+    <div class="opBox">
+      <button id="commit" class="primary">確定</button>
+      <div class="opRow">
         <button id="undo">Undo</button>
         <button id="reset">Reset</button>
       </div>
