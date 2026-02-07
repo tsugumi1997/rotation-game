@@ -7,22 +7,21 @@
 
   --wood1:#d7b07a;
   --wood2:#c99b60;
-
   --board-border:#2a2117;
 
   --cellSize:56px;
   --gap:8px;
-
-  --ctlW:220px;
 }
 
 *{ box-sizing:border-box; }
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
   background:var(--bg);
   color:var(--ink);
 }
+
 header, main{ padding:12px; }
 
 .titleRow{
@@ -45,17 +44,20 @@ h1{ margin:0; font-size:22px; }
 }
 
 #hud{ margin-top:10px; }
+
 .turnBig{
   font-size:34px;
   font-weight:900;
   margin:8px 0 10px;
 }
+
 .hudRow{
   display:flex;
   flex-wrap:wrap;
   gap:10px;
   margin-bottom:10px;
 }
+
 .pill{
   display:inline-flex;
   align-items:center;
@@ -65,89 +67,134 @@ h1{ margin:0; font-size:22px; }
   border:2px solid #cdbda8;
   background:#fff;
 }
+
 .statusPill{ width:100%; }
+
 .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
-/* 盤エリア */
+/* ===== 盤の周り（スクロール不要の構成） ===== */
 .boardZone{
+  max-width: 760px;
+  margin: 0 auto;
   display:flex;
-  justify-content:center;
-  padding:10px 0 16px;
+  flex-direction:column;
+  gap:10px;
+  align-items:center;
 }
 
-/* ここが重要：absoluteの基準 */
-.boardFrame{
-  position:relative;
-  display:inline-block;
-  padding:90px 18px 150px; /* 四隅＋下中央の置き場 */
+/* 上下の角操作 */
+.ctlRowTop, .ctlRowBottom{
+  width:100%;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
 }
 
-/* 盤 */
-.superBoard{
-  width: calc(var(--cellSize) * 6 + var(--gap) * 5 + 28px);
-  height: calc(var(--cellSize) * 6 + var(--gap) * 5 + 28px);
-  border-radius:22px;
-  border:6px solid var(--board-border);
-  background:
-    repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 18px, rgba(0,0,0,.04) 18px 36px),
-    linear-gradient(180deg, var(--wood1), var(--wood2));
-  box-shadow:0 10px 22px rgba(0,0,0,.18);
-  overflow:hidden;
-}
-
-/* 外側ボタン（四隅＋下中央） */
 .ctlBox{
-  position:absolute;                /* ←効いてないと縦並びになる */
-  width: var(--ctlW);
   padding:12px;
   border-radius:16px;
   border:2px solid #cdbda8;
   background: rgba(255,255,255,.78);
   backdrop-filter: blur(6px);
-  box-shadow:0 10px 20px rgba(0,0,0,.12);
+  box-shadow:0 10px 20px rgba(0,0,0,.10);
 }
+
 .ctlTitle{ font-weight:900; margin-bottom:8px; }
 
 .ctlRow{ display:flex; gap:10px; }
-.ctlCol{ display:flex; flex-direction:column; gap:10px; }
 
-.miniBtn, .wideBtn{
+.chipMini{
+  padding:12px 12px;
+  border-radius:14px;
+  border:2px solid #cdbda8;
+  background:#fff;
+  font-weight:900;
+  flex:1 1 auto;
+}
+
+/* ===== 盤：ここが最重要（gridに戻す） ===== */
+.superBoard{
+  display:grid;
+  grid-template-columns: repeat(6, var(--cellSize));
+  grid-template-rows: repeat(6, var(--cellSize));
+  gap: var(--gap);
+  padding: 14px;
+  border-radius: 22px;
+  border: 6px solid var(--board-border);
+
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 18px, rgba(0,0,0,.04) 18px 36px),
+    linear-gradient(180deg, var(--wood1), var(--wood2));
+
+  box-shadow: 0 10px 22px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+
+/* app.js が作るマス */
+.cell{
+  width: var(--cellSize);
+  height: var(--cellSize);
+  border-radius: 999px;
+  border: 3px solid #000;
+  background: rgba(255,255,255,.70);
+  cursor:pointer;
+  touch-action: manipulation;
+}
+
+.cell[data-mark="1"]{ background:#111; border-color:#000; }
+.cell[data-mark="2"]{ background:#fff; border-color:#000; }
+
+.cell.pending{
+  outline: 6px solid rgba(255, 140, 0, .75);
+  outline-offset: 2px;
+}
+
+.cell.win{
+  outline: 6px solid rgba(0, 160, 255, .65);
+  outline-offset: 2px;
+}
+
+/* ===== 操作（下中央） ===== */
+.opsBox{
+  width:100%;
+  padding:12px;
+  border-radius:16px;
+  border:2px solid #cdbda8;
+  background: rgba(255,255,255,.78);
+  backdrop-filter: blur(6px);
+  box-shadow:0 10px 20px rgba(0,0,0,.10);
+}
+
+.opsCol{ display:flex; flex-direction:column; gap:10px; }
+
+.wideBtn{
   padding:12px 14px;
   border-radius:14px;
   border:2px solid #cdbda8;
   background:#fff;
-  font-weight:800;
+  font-weight:900;
   flex:1 1 auto;
 }
+
 .primary{
   background:#ead8b8;
   border-color:#cdbda8;
 }
 
-/* 位置（四隅） */
-.ctlTL{ top:6px; left:6px; }
-.ctlTR{ top:6px; right:6px; }
-.ctlBL{ bottom:6px; left:6px; }
-.ctlBR{ bottom:6px; right:6px; }
-
-/* 下中央 */
-.ctlBottom{
-  left:50%;
-  bottom:-6px;
-  transform:translateX(-50%);
-  width: min(320px, 86vw);
-}
-
+/* 下のパネル */
 .panel{
-  max-width:680px;
-  margin:10px auto 0;
+  max-width:760px;
+  margin:14px auto 0;
   padding:14px;
   border-radius:16px;
   border:2px solid #cdbda8;
   background:var(--panel);
 }
+
 .panelTitle{ font-weight:900; margin:10px 0; }
+
 .row{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 8px; }
+
 .chip{
   padding:12px 14px;
   border-radius:999px;
@@ -155,9 +202,11 @@ h1{ margin:0; font-size:22px; }
   background:#fff;
   font-weight:900;
 }
+
 .chip.selected{ outline:4px solid rgba(0,140,255,.35); }
 
 .roomRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
 .roomInput{
   flex:1 1 180px;
   padding:12px 12px;
@@ -165,9 +214,10 @@ h1{ margin:0; font-size:22px; }
   border:2px solid #cdbda8;
   background:#fff;
 }
+
 .roomHint{ margin-top:8px; color:#555; font-size:13px; }
 
 @media (max-width:420px){
-  :root{ --cellSize:50px; --gap:7px; --ctlW:200px; }
-  .boardFrame{ padding:84px 10px 145px; }
+  :root{ --cellSize:50px; --gap:7px; }
+  .ctlRowTop, .ctlRowBottom{ grid-template-columns: 1fr; } /* どうしても狭い時は縦に */
 }
